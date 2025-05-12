@@ -76,7 +76,7 @@ void setup()
   drawSplashScreenWithImage();
   display.fillScreen(TFT_BLACK);
 
-  // Serial.begin(UART_BAUD);
+  Serial.begin(UART_BAUD);
   EEPROM.write(1, 0);
   EEPROM.commit();
   commMode = EEPROM.read(1);
@@ -142,6 +142,19 @@ void setup()
 
 void loop()
 {
+  if (millis() - lastPrintTime >= 1000)
+  { // Interval 1000ms
+    lastPrintTime = millis();
+    if (commMode == COMM_CAN)
+    {
+      Serial.print("CAN mode aktif. ");
+    }
+    else
+    {
+      Serial.print("Serial mode aktif. ");
+    }
+    Serial.printf("RPM: %d, MAP: %d, TPS: %d, VSS: %.2f, CLT: %.2f, IAT: %.2f, FP: %d, AFR: %.2f, Bat: %.2f\n", rpm, mapData, tps, vss, clt, iat, fp, afrConv, bat);
+  }
   if (commMode == COMM_CAN)
   {
     handleCANCommunication();
