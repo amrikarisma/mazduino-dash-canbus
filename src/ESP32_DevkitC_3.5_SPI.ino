@@ -68,6 +68,15 @@ uint32_t startupTime;
 uint32_t lazyUpdateTime;
 uint16_t spr_width = 0;
 
+void canTask(void *pvParameters)
+{
+  while (1)
+  {
+    handleCANCommunication();
+    vTaskDelay(1);
+  }
+}
+
 void setup()
 {
   EEPROM.begin(EEPROM_SIZE);
@@ -84,13 +93,23 @@ void setup()
   {
 
     CAN0.setCANPins(GPIO_NUM_17, GPIO_NUM_16); // RX, TX
-    CAN0.begin(500000); // 500Kbps
-    CAN0.watchFor(0x360); // RPM, MAP, TPS
-    // CAN0.watchFor(0x361); // Fuel Pressure
-    CAN0.watchFor(0x368); // AFR 01
+    CAN0.begin(1000000);                       // 1Mbps
+    CAN0.watchFor(0x360);                      // RPM, MAP, TPS
+    CAN0.watchFor(0x361);                      // Fuel Pressure
+    CAN0.watchFor(0x368);                      // AFR 01
     // CAN0.watchFor(0x370); // VSS
     CAN0.watchFor(0x372); // Voltage
     CAN0.watchFor(0x3E0); // CLT, IAT
+    xTaskCreatePinnedToCore(
+        canTask,
+        "CAN Task", 
+        4096,
+        NULL,
+        1,
+        NULL,
+        0
+    );
+
     Serial.println("CAN mode aktif.");
   }
   else
@@ -142,69 +161,70 @@ void setup()
 
 void loop()
 {
-  if (millis() - lastPrintTime >= 1000)
-  { // Interval 1000ms
-    lastPrintTime = millis();
-    if (commMode == COMM_CAN)
-    {
-      Serial.print("CAN mode aktif. ");
-    }
-    else
-    {
-      Serial.print("Serial mode aktif. ");
-    }
-    Serial.printf("RPM: %d, MAP: %d, TPS: %d, VSS: %.2f, CLT: %.2f, IAT: %.2f, FP: %d, AFR: %.2f, Bat: %.2f\n", rpm, mapData, tps, vss, clt, iat, fp, afrConv, bat);
-  }
-  if (commMode == COMM_CAN)
-  {
-    handleCANCommunication();
-  }
-  else
+  // if (millis() - lastPrintTime >= 1000)
+  // { // Interval 1000ms
+  //   lastPrintTime = millis();
+  //   if (commMode == COMM_CAN)
+  //   {
+  //     Serial.print("CAN mode aktif. ");
+  //   }
+  //   else
+  //   {
+  //     Serial.print("Serial mode aktif. ");
+  //   }
+  //   Serial.printf("RPM: %d, MAP: %d, TPS: %d, VSS: %.2f, CLT: %.2f, IAT: %.2f, FP: %d, AFR: %.2f, Bat: %.2f\n", rpm, mapData, tps, vss, clt, iat, fp, afrConv, bat);
+  // }
+  if (commMode != COMM_CAN)
   {
     handleSerialCommunication();
   }
 
-  drawData();
-
-  if (millis() - lastClientCheck >= 1000)
-  {
-    lastClientCheck = millis();
-    int clientCount = WiFi.softAPgetStationNum();
-
-    if (clientCount > 0)
-    {
-      clientConnected = true;
-      lastClientCheck = millis(); // Reset timer jika ada koneksi
-    }
-    else if (millis() - lastClientCheckTimeout > wifiTimeout)
-    {
-      clientConnected = false;
-      lastClientCheckTimeout = millis();
-    }
-
-    // Matikan WiFi jika RPM > 100 atau tidak ada perangkat terkoneksi selama 30 detik
-    if ((rpm > 100 || !clientConnected) && wifiActive)
-    {
-      WiFi.mode(WIFI_OFF);
-      server.stop();
-      wifiActive = false;
-    }
-    // Nyalakan kembali WiFi jika RPM ≤ 100 dan ada perangkat yang terkoneksi
-    else if (rpm <= 100 && clientConnected && !wifiActive)
-    {
-      WiFi.mode(WIFI_AP);
-      WiFi.softAPConfig(ip, ip, netmask);
-      WiFi.softAP(ssid, password);
-      server.begin();
-      wifiActive = true;
-      server.handleClient();
-    }
+  static uint32_t lastDraw = 0;
+  if (millis() - lastDraw > 25)
+  { // Update every 100ms
+    drawData();
+    lastDraw = millis();
   }
 
-  if (rpm <= 100 && wifiActive)
-  {
-    server.handleClient();
-  }
+  // if (millis() - lastClientCheck >= 1000)
+  // {
+  //   lastClientCheck = millis();
+  //   int clientCount = WiFi.softAPgetStationNum();
+
+  //   if (clientCount > 0)
+  //   {
+  //     clientConnected = true;
+  //     lastClientCheck = millis(); // Reset timer jika ada koneksi
+  //   }
+  //   else if (millis() - lastClientCheckTimeout > wifiTimeout)
+  //   {
+  //     clientConnected = false;
+  //     lastClientCheckTimeout = millis();
+  //   }
+
+  //   // Matikan WiFi jika RPM > 100 atau tidak ada perangkat terkoneksi selama 30 detik
+  //   if ((rpm > 100 || !clientConnected) && wifiActive)
+  //   {
+  //     WiFi.mode(WIFI_OFF);
+  //     server.stop();
+  //     wifiActive = false;
+  //   }
+  //   // Nyalakan kembali WiFi jika RPM ≤ 100 dan ada perangkat yang terkoneksi
+  //   else if (rpm <= 100 && clientConnected && !wifiActive)
+  //   {
+  //     WiFi.mode(WIFI_AP);
+  //     WiFi.softAPConfig(ip, ip, netmask);
+  //     WiFi.softAP(ssid, password);
+  //     server.begin();
+  //     wifiActive = true;
+  //     server.handleClient();
+  //   }
+  // }
+
+  // if (rpm <= 100 && wifiActive)
+  // {
+  //   server.handleClient();
+  // }
 }
 
 void handleCANCommunication()
@@ -219,25 +239,25 @@ void handleCANCommunication()
     CAN_FRAME can_message;
     if (CAN0.read(can_message))
     {
-      // Serial.print("ID: ");
-      // Serial.print(can_message.id, HEX);
-      // Serial.print(" Data: ");
-      // for (int i = 0; i < can_message.length; i++)
-      // {
-      //   Serial.print(can_message.data.byte[i], HEX);
-      //   Serial.print(" ");
-      // }
-      // Serial.println();
+      Serial.print("ID: ");
+      Serial.print(can_message.id, HEX);
+      Serial.print(" Data: ");
+      for (int i = 0; i < can_message.length; i++)
+      {
+        Serial.print(can_message.data.byte[i], HEX);
+        Serial.print(" ");
+      }
+      Serial.println();
 
       // Proses data berdasarkan ID
       switch (can_message.id)
       {
       case 0x360:
-      {                                                                            // RPM, MAP, TPS
-        rpm = (can_message.data.byte[0] << 8) | can_message.data.byte[1];          // Byte 0-1
-        uint16_t map = (can_message.data.byte[2] << 8) | can_message.data.byte[3]; // Byte 2-3
+      {                                                                                // RPM, MAP, TPS
+        rpm = (can_message.data.byte[0] << 8) | can_message.data.byte[1];              // Byte 0-1
+        uint16_t map = (can_message.data.byte[2] << 8) | can_message.data.byte[3];     // Byte 2-3
         uint16_t tps_raw = (can_message.data.byte[4] << 8) | can_message.data.byte[5]; // Byte 4-5
-        mapData = map / 10.0;                                                      // Konversi ke kPa
+        mapData = map / 10.0;                                                          // Konversi ke kPa
         tps = tps_raw / 10.0;                                                          // Konversi ke kPa
         break;
       }
@@ -287,30 +307,30 @@ void handleCANCommunication()
     }
   }
 
-  if (currentTime - lastPrintTime >= 1000)
-  { // Interval 1000ms
-    Serial.print("RPM: ");
-    Serial.print(rpm);
-    Serial.print(" MAP: ");
-    Serial.print(mapData);
-    Serial.print(" kPa TPS: ");
-    Serial.print(tps);
-    Serial.print(" % Fuel Pressure: ");
-    Serial.print(fp);
-    Serial.print(" kPa AFR: ");
-    Serial.print(afrConv, 2);
-    Serial.print(" VSS: ");
-    Serial.print(vss);
-    Serial.print(" km/h Voltage: ");
-    Serial.print(bat, 2);
-    Serial.print(" V CLT: ");
-    Serial.print(clt);
-    Serial.print(" °C IAT: ");
-    Serial.print(iat);
-    Serial.println(" °C");
+  // if (currentTime - lastPrintTime >= 1000)
+  // { // Interval 1000ms
+  //   Serial.print("RPM: ");
+  //   Serial.print(rpm);
+  //   Serial.print(" MAP: ");
+  //   Serial.print(mapData);
+  //   Serial.print(" kPa TPS: ");
+  //   Serial.print(tps);
+  //   Serial.print(" % Fuel Pressure: ");
+  //   Serial.print(fp);
+  //   Serial.print(" kPa AFR: ");
+  //   Serial.print(afrConv, 2);
+  //   Serial.print(" VSS: ");
+  //   Serial.print(vss);
+  //   Serial.print(" km/h Voltage: ");
+  //   Serial.print(bat, 2);
+  //   Serial.print(" V CLT: ");
+  //   Serial.print(clt);
+  //   Serial.print(" °C IAT: ");
+  //   Serial.print(iat);
+  //   Serial.println(" °C");
 
-    lastPrintTime = currentTime;
-  }
+  //   lastPrintTime = currentTime;
+  // }
 }
 
 void handleSerialCommunication()
@@ -583,7 +603,7 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
     spr_width = spr.textWidth("333");
     spr.setTextColor(labelColor, TFT_BLACK, true);
     if (decimal > 0)
-    { 
+    {
       spr.drawFloat(value, decimal, 50, 5);
     }
     else
