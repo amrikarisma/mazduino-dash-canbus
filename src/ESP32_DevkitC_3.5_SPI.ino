@@ -54,7 +54,7 @@ bool clientConnected = true;
 
 uint8_t iat = 0, clt = 0;
 uint8_t refreshRate = 0;
-unsigned int rpm = 6000, lastRpm, vss = 0;
+unsigned int rpm = 0, lastRpm, vss = 0;
 int mapData, tps, adv, fp;
 float bat = 0.0, afrConv = 0.0;
 bool syncStatus, fan, ase, wue, rev, launch, airCon, dfco;
@@ -96,20 +96,14 @@ void setup()
     CAN0.begin(1000000);                       // 1Mbps
     CAN0.watchFor(0x360);                      // RPM, MAP, TPS
     CAN0.watchFor(0x361);                      // Fuel Pressure
+    CAN0.watchFor(0x362);                      // Ignition Angle (Leading)
     CAN0.watchFor(0x368);                      // AFR 01
-    // CAN0.watchFor(0x370); // VSS
+    CAN0.watchFor(0x370); // VSS
     CAN0.watchFor(0x372); // Voltage
     CAN0.watchFor(0x3E0); // CLT, IAT
     CAN0.watchFor(0x3E4); // Indicator
 
-    xTaskCreatePinnedToCore(
-        canTask,
-        "CAN Task",
-        4096,
-        NULL,
-        1,
-        NULL,
-        0);
+    xTaskCreatePinnedToCore(canTask, "CAN Task", 4096, NULL, 1, NULL, 0);
 
     Serial.println("CAN mode aktif.");
   }
@@ -308,7 +302,7 @@ void handleCANCommunication()
       }
       case 0x362:
       {                                                                                // Ignition Advance
-        uint16_t adv_raw = (can_message.data.byte[4] << 8) | can_message.data.byte[5]; // Byte 2-3
+        uint16_t adv_raw = (can_message.data.byte[4] << 8) | can_message.data.byte[5]; // Byte 4-5
         adv = adv_raw / 10.0;
         break;
       }
@@ -578,7 +572,7 @@ void startUpDisplay()
   display.drawString("RPM", 190, 120);
   itemDraw(true);
   spr.loadFont(AA_FONT_LARGE);
-  for (int i = rpm; i >= 0; i -= 250)
+  for (int i = 6000; i >= 0; i -= 250)
   {
     drawRPMBarBlocks(i);
     spr.createSprite(100, 50);
