@@ -100,15 +100,16 @@ void setup()
     // CAN0.watchFor(0x370); // VSS
     CAN0.watchFor(0x372); // Voltage
     CAN0.watchFor(0x3E0); // CLT, IAT
+    CAN0.watchFor(0x3E4); // Indicator
+
     xTaskCreatePinnedToCore(
         canTask,
-        "CAN Task", 
+        "CAN Task",
         4096,
         NULL,
         1,
         NULL,
-        0
-    );
+        0);
 
     Serial.println("CAN mode aktif.");
   }
@@ -118,38 +119,38 @@ void setup()
     Serial.println("Serial mode aktif.");
   }
 
-  WiFi.mode(WIFI_MODE_AP);
-  WiFi.softAPConfig(ip, ip, netmask);
-  WiFi.softAP(ssid, password);
+  // WiFi.mode(WIFI_MODE_AP);
+  // WiFi.softAPConfig(ip, ip, netmask);
+  // WiFi.softAP(ssid, password);
 
-  server.on("/", HTTP_GET, handleRoot);
-  server.on(
-      "/update", HTTP_POST, []()
-      {
-      server.send(200, "text/plain", (Update.hasError()) ? "Gagal update!" : "Update berhasil! MAZDUINO Display akan restart.");
-      delay(1000);
-      ESP.restart(); },
-      handleUpdate);
-  server.on("/toggle", HTTP_POST, handleToggle); // Endpoint untuk toggle
-  server.on("/setMode", HTTP_POST, []()
-            {
-              String mode = server.arg("mode");
-              if (mode == "serial")
-              {
-                commMode = COMM_SERIAL;
-              }
-              else if (mode == "can")
-              {
-                commMode = COMM_CAN;
-              }
-              EEPROM.write(1, commMode);
-              EEPROM.commit();
-              server.send(200, "text/plain", "Mode updated");
-              ESP.restart(); // Restart untuk menerapkan perubahan
-            });
-  server.begin();
-  Serial.println("Web server aktif.");
-  esp_wifi_set_max_tx_power(78);
+  // server.on("/", HTTP_GET, handleRoot);
+  // server.on(
+  //     "/update", HTTP_POST, []()
+  //     {
+  //     server.send(200, "text/plain", (Update.hasError()) ? "Gagal update!" : "Update berhasil! MAZDUINO Display akan restart.");
+  //     delay(1000);
+  //     ESP.restart(); },
+  //     handleUpdate);
+  // server.on("/toggle", HTTP_POST, handleToggle); // Endpoint untuk toggle
+  // server.on("/setMode", HTTP_POST, []()
+  //           {
+  //             String mode = server.arg("mode");
+  //             if (mode == "serial")
+  //             {
+  //               commMode = COMM_SERIAL;
+  //             }
+  //             else if (mode == "can")
+  //             {
+  //               commMode = COMM_CAN;
+  //             }
+  //             EEPROM.write(1, commMode);
+  //             EEPROM.commit();
+  //             server.send(200, "text/plain", "Mode updated");
+  //             ESP.restart(); // Restart untuk menerapkan perubahan
+  //           });
+  // server.begin();
+  // Serial.println("Web server aktif.");
+  // esp_wifi_set_max_tx_power(78);
 
   EEPROM.write(0, 1);
   delay(500);
@@ -179,12 +180,12 @@ void loop()
     handleSerialCommunication();
   }
 
-  static uint32_t lastDraw = 0;
-  if (millis() - lastDraw > 25)
-  { // Update every 100ms
-    drawData();
-    lastDraw = millis();
-  }
+  // static uint32_t lastDraw = 0;
+  // if (millis() - lastDraw > 25)
+  // { // Update every 100ms
+  drawData();
+  //   lastDraw = millis();
+  // }
 
   // if (millis() - lastClientCheck >= 1000)
   // {
@@ -239,15 +240,15 @@ void handleCANCommunication()
     CAN_FRAME can_message;
     if (CAN0.read(can_message))
     {
-      Serial.print("ID: ");
-      Serial.print(can_message.id, HEX);
-      Serial.print(" Data: ");
-      for (int i = 0; i < can_message.length; i++)
-      {
-        Serial.print(can_message.data.byte[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println();
+      // Serial.print("ID: ");
+      // Serial.print(can_message.id, HEX);
+      // Serial.print(" Data: ");
+      // for (int i = 0; i < can_message.length; i++)
+      // {
+      //   Serial.print(can_message.data.byte[i], HEX);
+      //   Serial.print(" ");
+      // }
+      // Serial.println();
 
       // Proses data berdasarkan ID
       switch (can_message.id)
@@ -289,7 +290,7 @@ void handleCANCommunication()
       case 0x3E0:
       {                                                                                // CLT
         uint16_t clt_raw = (can_message.data.byte[0] << 8) | can_message.data.byte[1]; // Byte 0-1
-        uint16_t iat_raw = (can_message.data.byte[2] << 8) | can_message.data.byte[3]; // Byte 0-1
+        uint16_t iat_raw = (can_message.data.byte[2] << 8) | can_message.data.byte[3]; // Byte 2-3
         float clt_k = clt_raw / 10.0;
         float iat_k = iat_raw / 10.0;
 
@@ -297,6 +298,21 @@ void handleCANCommunication()
         iat = iat_k - 273.15;
         break;
       }
+      case 0x3E4:
+      {                                                                                // Indicator
+        launch = (can_message.data.byte[2] << 8) | can_message.data.byte[6]; // Byte 2-6
+        airCon = (can_message.data.byte[3] << 8) | can_message.data.byte[4]; // Byte 3-4
+        fan = (can_message.data.byte[3] << 8) | can_message.data.byte[0]; // Byte 3-0
+        rev = (can_message.data.byte[2] << 8) | can_message.data.byte[5]; // Byte 2-5
+        break;
+      }
+      case 0x362:
+      {                                                                                // Ignition Advance
+        uint16_t adv_raw = (can_message.data.byte[4] << 8) | can_message.data.byte[5]; // Byte 2-3
+        adv = adv_raw / 10.0;
+        break;
+      }
+
       default:
         break;
       }
@@ -307,30 +323,32 @@ void handleCANCommunication()
     }
   }
 
-  // if (currentTime - lastPrintTime >= 1000)
-  // { // Interval 1000ms
-  //   Serial.print("RPM: ");
-  //   Serial.print(rpm);
-  //   Serial.print(" MAP: ");
-  //   Serial.print(mapData);
-  //   Serial.print(" kPa TPS: ");
-  //   Serial.print(tps);
-  //   Serial.print(" % Fuel Pressure: ");
-  //   Serial.print(fp);
-  //   Serial.print(" kPa AFR: ");
-  //   Serial.print(afrConv, 2);
-  //   Serial.print(" VSS: ");
-  //   Serial.print(vss);
-  //   Serial.print(" km/h Voltage: ");
-  //   Serial.print(bat, 2);
-  //   Serial.print(" V CLT: ");
-  //   Serial.print(clt);
-  //   Serial.print(" °C IAT: ");
-  //   Serial.print(iat);
-  //   Serial.println(" °C");
+  if (currentTime - lastPrintTime >= 1000)
+  { // Interval 1000ms
+    Serial.print("RPM: ");
+    Serial.print(rpm);
+    Serial.print(" MAP: ");
+    Serial.print(mapData);
+    Serial.print(" kPa TPS: ");
+    Serial.print(tps);
+    Serial.print(" % ADV:");
+    Serial.print(adv);
+    Serial.print(" ° Fuel Pressure: ");
+    Serial.print(fp);
+    Serial.print(" kPa AFR: ");
+    Serial.print(afrConv, 2);
+    Serial.print(" VSS: ");
+    Serial.print(vss);
+    Serial.print(" km/h Voltage: ");
+    Serial.print(bat, 2);
+    Serial.print(" V CLT: ");
+    Serial.print(clt);
+    Serial.print(" °C IAT: ");
+    Serial.print(iat);
+    Serial.println(" °C");
 
-  //   lastPrintTime = currentTime;
-  // }
+    lastPrintTime = currentTime;
+  }
 }
 
 void handleSerialCommunication()
