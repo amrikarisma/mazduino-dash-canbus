@@ -38,6 +38,13 @@ TFT_eSprite spr = TFT_eSprite(&display);
 #define RXD 16
 #define TXD 17
 
+// Backlight control
+#define BACKLIGHT_PIN 32
+#define BACKLIGHT_CHANNEL 0
+#define BACKLIGHT_FREQ 5000
+#define BACKLIGHT_RESOLUTION 8
+#define BACKLIGHT_BRIGHTNESS 100 // 0-255 (0 = off, 255 = max brightness)
+
 #define COMM_CAN 0
 #define COMM_SERIAL 1
 
@@ -55,11 +62,11 @@ bool clientConnected = true;
 uint8_t iat = 0, clt = 0;
 uint8_t refreshRate = 0;
 unsigned int rpm = 0, lastRpm, vss = 0;
-int mapData, tps, adv, fp;
+int mapData, tps, adv, fp, triggerError = 0;
 float bat = 0.0, afrConv = 0.0;
 bool syncStatus, fan, ase, wue, rev, launch, airCon, dfco;
 
-int lastIat = -1, lastClt = -1, lastTps = -1, lastAdv = -1, lastMapData = -1, lastFp = -1;
+int lastIat = -1, lastClt = -1, lastTps = -1, lastAdv = -1, lastMapData = -1, lastFp = -1, lastTriggerError = -1;
 float lastBat = -1, lastAfrConv = -1;
 unsigned int lastRefreshRate = -1;
 bool first_run = true;
@@ -67,6 +74,30 @@ uint32_t lastPrintTime = 0;
 uint32_t startupTime;
 uint32_t lazyUpdateTime;
 uint16_t spr_width = 0;
+
+// Function to set backlight brightness (0-255)
+void setBacklightBrightness(uint8_t brightness) {
+  ledcWrite(BACKLIGHT_CHANNEL, brightness);
+}
+
+// Function to adjust brightness based on time or RPM
+void adjustBacklightAutomatically() {
+  static uint32_t lastBrightnessCheck = 0;
+  
+  if (millis() - lastBrightnessCheck > 1000) { // Check every second
+    uint8_t newBrightness = BACKLIGHT_BRIGHTNESS;
+    
+    // Reduce brightness when engine is running (RPM > 500)
+    if (rpm > 500) {
+      newBrightness = 80; // Dimmer when driving
+    } else {
+      newBrightness = 150; // Brighter when idle/parked
+    }
+    
+    setBacklightBrightness(newBrightness);
+    lastBrightnessCheck = millis();
+  }
+}
 
 void canTask(void *pvParameters)
 {
@@ -80,6 +111,12 @@ void canTask(void *pvParameters)
 void setup()
 {
   EEPROM.begin(EEPROM_SIZE);
+  
+  // Setup backlight PWM
+  ledcSetup(BACKLIGHT_CHANNEL, BACKLIGHT_FREQ, BACKLIGHT_RESOLUTION);
+  ledcAttachPin(BACKLIGHT_PIN, BACKLIGHT_CHANNEL);
+  ledcWrite(BACKLIGHT_CHANNEL, BACKLIGHT_BRIGHTNESS); // Set brightness
+  
   display.init();
   display.setRotation(3);
   drawSplashScreenWithImage();
@@ -98,6 +135,7 @@ void setup()
     CAN0.watchFor(0x361);                      // Fuel Pressure
     CAN0.watchFor(0x362);                      // Ignition Angle (Leading)
     CAN0.watchFor(0x368);                      // AFR 01
+    CAN0.watchFor(0x369);                      // Trigger System Error Count
     CAN0.watchFor(0x370); // VSS
     CAN0.watchFor(0x372); // Voltage
     CAN0.watchFor(0x3E0); // CLT, IAT
@@ -173,6 +211,9 @@ void loop()
   {
     handleSerialCommunication();
   }
+
+  // Automatic backlight adjustment
+  adjustBacklightAutomatically();
 
   // static uint32_t lastDraw = 0;
   // if (millis() - lastDraw > 25)
@@ -269,6 +310,12 @@ void handleCANCommunication()
         afrConv = lambda * 14.7;
         break;
       }
+      case 0x369:
+      {                                                                                      // Trigger System Error Count
+        uint16_t trigger_raw = (can_message.data.byte[0] << 8) | can_message.data.byte[1]; // Byte 0-1
+        triggerError = trigger_raw;                                                        // Raw value, no conversion
+        break;
+      }
       case 0x370:
       {                                                                                // VSS
         uint16_t vss_raw = (can_message.data.byte[0] << 8) | can_message.data.byte[1]; // Byte 0-1
@@ -294,6 +341,7 @@ void handleCANCommunication()
       }
       case 0x3E4:
       {                                                                                // Indicator
+        dfco = (can_message.data.byte[1] << 8) | can_message.data.byte[4]; // Byte 1-4
         launch = (can_message.data.byte[2] << 8) | can_message.data.byte[6]; // Byte 2-6
         airCon = (can_message.data.byte[3] << 8) | can_message.data.byte[4]; // Byte 3-4
         fan = (can_message.data.byte[3] << 8) | can_message.data.byte[0]; // Byte 3-0
@@ -515,7 +563,7 @@ void drawSplashScreenWithImage()
   display.drawString("MAZDUINO Display", centerX, centerY);
   display.loadFont(AA_FONT_SMALL);
   display.drawString("Firmware version: " + String(version), centerX, centerY + 50);
-  display.drawString("https://mazduino.kerja.dev", centerX, 300);
+  display.drawString("www.mazduino.com", centerX, 300);
   // display.drawString("Powered by "+ String(ESP.getChipModel())+ " Rev"+ String(ESP.getChipRevision()), centerX, 300);
 
   delay(5000);
@@ -524,8 +572,8 @@ void drawSplashScreenWithImage()
 void itemDraw(bool setup)
 {
   const char *labels[] = {"AFR", "TPS", "ADV", "MAP"};
-  int values[] = {afrConv, tps, adv, mapData};
-  int lastValues[] = {lastAfrConv, lastTps, lastAdv, lastMapData};
+  float values[] = {afrConv, tps, adv, mapData};
+  float lastValues[] = {lastAfrConv, lastTps, lastAdv, lastMapData};
   int positions[][2] = {{5, 190}, {360, 190}, {120, 190}, {360, 10}};
   uint16_t colors[] = {(afrConv < 13.0) ? TFT_ORANGE : ((afrConv > 14.7) ? TFT_RED : TFT_GREEN), TFT_WHITE, TFT_RED, TFT_WHITE};
 
@@ -537,9 +585,9 @@ void itemDraw(bool setup)
 
   if ((millis() - lazyUpdateTime > 1000) || setup)
   {
-    const char *labelsLazy[4] = {"IAT", "Coolant", "Voltage", (EEPROM.read(0) == 1) ? "FPS" : "FP"};
-    int valuesLazy[4] = {iat, clt, static_cast<float>(bat), (EEPROM.read(0) == 1) ? refreshRate : fp};
-    int lastValuesLazy[4] = {lastIat, lastClt, static_cast<float>(lastBat), (EEPROM.read(0) == 1) ? lastRefreshRate : lastFp};
+    const char *labelsLazy[4] = {"IAT", "Coolant", "Voltage", (EEPROM.read(0) == 1) ? "Trigger" : "FP"};
+    float valuesLazy[4] = {iat, clt, bat, (EEPROM.read(0) == 1) ? triggerError : fp};
+    float lastValuesLazy[4] = {lastIat, lastClt, lastBat, (EEPROM.read(0) == 1) ? lastTriggerError : lastFp};
 
     int positionsLazy[][2] = {{5, 10}, {5, 100}, {360, 100}, {240, 190}};
     uint16_t colorsLazy[] = {TFT_WHITE, (clt > 95) ? TFT_RED : TFT_WHITE,
@@ -585,7 +633,7 @@ void startUpDisplay()
   }
 }
 
-void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const int valueToCompare, const int decimal, bool setup)
+void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const float valueToCompare, const int decimal, bool setup)
 {
   const int BOX_WIDTH = 100; // Reduced width to fit screen
   const int BOX_HEIGHT = 80; // Adjusted height
