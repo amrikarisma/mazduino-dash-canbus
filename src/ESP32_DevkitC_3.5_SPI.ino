@@ -93,7 +93,7 @@ void setup()
   {
 
     CAN0.setCANPins(GPIO_NUM_17, GPIO_NUM_16); // RX, TX
-    CAN0.begin(1000000);                       // 1Mbps
+    CAN0.begin(500000);                       // 500Kbps
     CAN0.watchFor(0x360);                      // RPM, MAP, TPS
     CAN0.watchFor(0x361);                      // Fuel Pressure
     CAN0.watchFor(0x368);                      // AFR 01
