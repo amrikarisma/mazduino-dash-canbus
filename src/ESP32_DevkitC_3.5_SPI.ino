@@ -8,6 +8,8 @@
 #include "Arduino.h"
 #include "SPI.h"
 #include <TFT_eSPI.h>
+#include <TinyGPS++.h>
+
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 
@@ -26,17 +28,23 @@ WebServer server(80);
 TFT_eSPI display = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&display);
 
+TinyGPSPlus gps;
+
+HardwareSerial gpsSerial(2);
+
 #include "Comms.h"
 #include "text_utils.h"
 #include "drawing_utils.h"
 
 #define UART_BAUD 115200
+#define GPS_BAUD 9600
+
 // ESP32-C3 Supermini
 // #define RXD 2
 // #define TXD 3
 // ESP32-DEVKITC-V4
-#define RXD 16
-#define TXD 17
+#define RXD 26
+#define TXD 25
 
 #define COMM_CAN 0
 #define COMM_SERIAL 1
@@ -54,12 +62,12 @@ bool clientConnected = true;
 
 uint8_t iat = 0, clt = 0;
 uint8_t refreshRate = 0;
-unsigned int rpm = 6000, lastRpm, vss = 0;
+unsigned int rpm = 0, lastRpm, vss = 0;
 int mapData, tps, adv, fp;
 float bat = 0.0, afrConv = 0.0;
 bool syncStatus, fan, ase, wue, rev, launch, airCon, dfco;
-
-int lastIat = -1, lastClt = -1, lastTps = -1, lastAdv = -1, lastMapData = -1, lastFp = -1;
+float vssFloat;
+int lastIat = -1, lastClt = -1, lastTps = -1, lastAdv = -1, lastMapData = -1, lastFp = -1, lastVss = -1;
 float lastBat = -1, lastAfrConv = -1;
 unsigned int lastRefreshRate = -1;
 bool first_run = true;
@@ -77,8 +85,28 @@ void canTask(void *pvParameters)
   }
 }
 
+void gpsTask(void *pvParameters)
+{
+  while (1)
+  {
+    while (gpsSerial.available() > 0)
+    {
+      gps.encode(gpsSerial.read());
+    }
+
+    if (gps.location.isUpdated())
+    {
+      // gps.speed.kmph()
+      vss = gps.speed.kmph();
+      vssFloat = gps.speed.kmph();
+    }
+    vTaskDelay(50);
+  }
+}
+
 void setup()
 {
+  randomSeed(millis());
   EEPROM.begin(EEPROM_SIZE);
   display.init();
   display.setRotation(3);
@@ -86,6 +114,8 @@ void setup()
   display.fillScreen(TFT_BLACK);
 
   Serial.begin(UART_BAUD);
+  gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RXD, TXD);
+
   EEPROM.write(1, 0);
   EEPROM.commit();
   commMode = EEPROM.read(1);
@@ -102,14 +132,12 @@ void setup()
     CAN0.watchFor(0x3E0); // CLT, IAT
     xTaskCreatePinnedToCore(
         canTask,
-        "CAN Task", 
+        "CAN Task",
         4096,
         NULL,
         1,
         NULL,
-        0
-    );
-
+        0);
     Serial.println("CAN mode aktif.");
   }
   else
@@ -117,6 +145,17 @@ void setup()
     Serial1.begin(UART_BAUD, SERIAL_8N1, RXD, TXD);
     Serial.println("Serial mode aktif.");
   }
+
+  xTaskCreatePinnedToCore(
+      gpsTask,
+      "GPS Task",
+      4096,
+      NULL,
+      1,
+      NULL,
+      1);
+
+  Serial.println("GPS mode aktif.");
 
   WiFi.mode(WIFI_MODE_AP);
   WiFi.softAPConfig(ip, ip, netmask);
@@ -161,19 +200,19 @@ void setup()
 
 void loop()
 {
+
   // if (millis() - lastPrintTime >= 1000)
   // { // Interval 1000ms
   //   lastPrintTime = millis();
-  //   if (commMode == COMM_CAN)
-  //   {
-  //     Serial.print("CAN mode aktif. ");
-  //   }
-  //   else
-  //   {
-  //     Serial.print("Serial mode aktif. ");
-  //   }
-  //   Serial.printf("RPM: %d, MAP: %d, TPS: %d, VSS: %.2f, CLT: %.2f, IAT: %.2f, FP: %d, AFR: %.2f, Bat: %.2f\n", rpm, mapData, tps, vss, clt, iat, fp, afrConv, bat);
+  // Serial.printf("RPM: %d, MAP: %d, TPS: %d, VSS: %.2f km/h, CLT: %.2f, IAT: %.2f, FP: %d, AFR: %.2f, Bat: %.2f\n",
+  //               rpm, mapData, tps, vss, clt, iat, fp, afrConv, bat);
+  // Serial.printf("GPS: Lat: %.6f, Lng: %.6f, Speed: %.2f km/h\n", gps.location.lat(), gps.location.lng(), gps.speed.kmph());
+  // Serial.printf("VSS: %.2f km/h\n", vssFloat); // untuk presisi
+
+  // Serial.println("------");
+
   // }
+
   if (commMode != COMM_CAN)
   {
     handleSerialCommunication();
@@ -239,15 +278,15 @@ void handleCANCommunication()
     CAN_FRAME can_message;
     if (CAN0.read(can_message))
     {
-      Serial.print("ID: ");
-      Serial.print(can_message.id, HEX);
-      Serial.print(" Data: ");
-      for (int i = 0; i < can_message.length; i++)
-      {
-        Serial.print(can_message.data.byte[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println();
+      // Serial.print("ID: ");
+      // Serial.print(can_message.id, HEX);
+      // Serial.print(" Data: ");
+      // for (int i = 0; i < can_message.length; i++)
+      // {
+      //   Serial.print(can_message.data.byte[i], HEX);
+      //   Serial.print(" ");
+      // }
+      // Serial.println();
 
       // Proses data berdasarkan ID
       switch (can_message.id)
@@ -274,12 +313,12 @@ void handleCANCommunication()
         afrConv = lambda * 14.7;
         break;
       }
-      case 0x370:
-      {                                                                                // VSS
-        uint16_t vss_raw = (can_message.data.byte[0] << 8) | can_message.data.byte[1]; // Byte 0-1
-        vss = vss_raw / 10.0;                                                          // Konversi ke km/h
-        break;
-      }
+      // case 0x370:
+      // {                                                                                // VSS
+      //   uint16_t vss_raw = (can_message.data.byte[0] << 8) | can_message.data.byte[1]; // Byte 0-1
+      //   vss = vss_raw / 10.0;                                                          // Konversi ke km/h
+      //   break;
+      // }
       case 0x372:
       {                                                                                // Voltage
         uint16_t voltage = (can_message.data.byte[0] << 8) | can_message.data.byte[1]; // Byte 0-1
@@ -306,31 +345,6 @@ void handleCANCommunication()
       Serial.println("Error reading CAN message.");
     }
   }
-
-  // if (currentTime - lastPrintTime >= 1000)
-  // { // Interval 1000ms
-  //   Serial.print("RPM: ");
-  //   Serial.print(rpm);
-  //   Serial.print(" MAP: ");
-  //   Serial.print(mapData);
-  //   Serial.print(" kPa TPS: ");
-  //   Serial.print(tps);
-  //   Serial.print(" % Fuel Pressure: ");
-  //   Serial.print(fp);
-  //   Serial.print(" kPa AFR: ");
-  //   Serial.print(afrConv, 2);
-  //   Serial.print(" VSS: ");
-  //   Serial.print(vss);
-  //   Serial.print(" km/h Voltage: ");
-  //   Serial.print(bat, 2);
-  //   Serial.print(" V CLT: ");
-  //   Serial.print(clt);
-  //   Serial.print(" °C IAT: ");
-  //   Serial.print(iat);
-  //   Serial.println(" °C");
-
-  //   lastPrintTime = currentTime;
-  // }
 }
 
 void handleSerialCommunication()
@@ -503,10 +517,10 @@ void drawSplashScreenWithImage()
   display.drawString("MAZDUINO Display", centerX, centerY);
   display.loadFont(AA_FONT_SMALL);
   display.drawString("Firmware version: " + String(version), centerX, centerY + 50);
-  display.drawString("https://mazduino.kerja.dev", centerX, 300);
+  display.drawString("www.mazduino.com", centerX, 300);
   // display.drawString("Powered by "+ String(ESP.getChipModel())+ " Rev"+ String(ESP.getChipRevision()), centerX, 300);
 
-  delay(5000);
+  delay(2000);
 }
 
 void itemDraw(bool setup)
@@ -557,19 +571,20 @@ void startUpDisplay()
   display.loadFont(AA_FONT_SMALL);
   spr.setColorDepth(16);
   display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.drawString("RPM", 190, 120);
+  display.drawString("RPM", 270, 10);
+  display.drawString("Km/h", 300, 160);
   itemDraw(true);
   spr.loadFont(AA_FONT_LARGE);
-  for (int i = rpm; i >= 0; i -= 250)
+  for (int i = 6000; i >= 0; i -= 250)
   {
     drawRPMBarBlocks(i);
-    spr.createSprite(100, 50);
-    spr_width = spr.textWidth("7777"); // 7 is widest numeral in this font
-    spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
-    spr.setTextDatum(TR_DATUM);
-    spr.drawNumber(i, 100, 5);
-    spr.pushSprite(190, 140);
-    spr.deleteSprite();
+    // spr.createSprite(100, 50);
+    // spr_width = spr.textWidth("7777"); // 7 is widest numeral in this font
+    // spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
+    // spr.setTextDatum(TR_DATUM);
+    // spr.drawNumber(i, 100, 5);
+    // spr.pushSprite(190, 140);
+    // spr.deleteSprite();
   }
 }
 
@@ -620,15 +635,27 @@ void drawData()
   if (lastRpm != rpm)
   {
     drawRPMBarBlocks(rpm);
-    spr.loadFont(AA_FONT_LARGE);
-    spr.createSprite(100, 50);
-    spr_width = spr.textWidth("7777"); // 7 is widest numeral in this font
+    spr.loadFont(AA_FONT_SMALL);
+    spr.createSprite(45, 20);
+    spr_width = spr.textWidth("7777");
     spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
     spr.setTextDatum(TR_DATUM);
-    spr.drawNumber(rpm, 100, 5);
-    spr.pushSprite(190, 140);
+    spr.drawNumber(rpm, 45, 5);
+    spr.pushSprite(300, 15);
     spr.deleteSprite();
     lastRpm = rpm;
+  }
+  if (lastVss != vss)
+  {
+    spr.loadFont(AA_FONT_LARGE);
+    spr.createSprite(100, 50);
+    spr_width = spr.textWidth("999");
+    spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
+    spr.setTextDatum(TR_DATUM);
+    spr.drawNumber(vss, 100, 5);
+    spr.pushSprite(160, 140);
+    spr.deleteSprite();
+    lastVss = vss;
   }
   itemDraw(false);
 }
