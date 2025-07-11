@@ -3,6 +3,7 @@
 #include "DataTypes.h"
 #include "DisplayConfig.h"
 #include "drawing_utils.h"
+#include "SplashScreen.h"
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 #include <EEPROM.h>
@@ -21,20 +22,8 @@ void setupDisplay() {
 }
 
 void drawSplashScreenWithImage() {
-  display.fillScreen(TFT_BLACK);
-  display.loadFont(AA_FONT_LARGE);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-
-  display.setTextDatum(TC_DATUM);
-  int centerX = display.width() / 2;
-  int centerY = (display.height() / 2) - 35;
-
-  display.drawString("MAZDUINO Display", centerX, centerY);
-  display.loadFont(AA_FONT_SMALL);
-  display.drawString("Firmware version: " + String(version), centerX, centerY + 50);
-  display.drawString("www.mazduino.com", centerX, 300);
-
-  delay(5000);
+  // Use the new modular animated splash screen
+  showAnimatedSplashScreen();
 }
 
 void drawConfigurablePanels(bool setup) {
@@ -43,14 +32,14 @@ void drawConfigurablePanels(bool setup) {
   // RPM bar occupies roughly Y=40 to Y=150, so panels moved to avoid collision
   // Each panel is 80px tall, fitting 2 main panels per column + 1 bottom panel each
   int panelPositions[8][2] = {
-    {5, 10},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
-    {5, 100},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {5, 190},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {365, 10}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {365, 100}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {365, 190}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
-    {120, 190}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
-    {240, 190}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
+    {5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
+    {5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
+    {5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
+    {365, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
+    {365, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
+    {365, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
+    {120, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
+    {240, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
   };
   
   // Draw each enabled panel
@@ -67,14 +56,14 @@ void drawModularDataPanel(const DisplayPanel &panel, bool setup) {
   // RPM bar occupies roughly Y=40 to Y=150, so panels moved to avoid collision
   // Each panel is 80px tall, fitting 2 main panels per column + 1 bottom panel each
   int panelPositions[8][2] = {
-    {5, 10},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
-    {5, 100},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {5, 190},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {365, 10}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {365, 100}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {365, 190}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
-    {120, 190}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
-    {240, 190}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
+    {5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
+    {5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
+    {5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
+    {365, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
+    {365, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
+    {365, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
+    {120, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
+    {240, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
   };
   
   if (panel.position >= 8) return;
