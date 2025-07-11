@@ -17,6 +17,7 @@ void setupCAN() {
   CAN0.watchFor(0x3E0);                      // CLT, IAT
   CAN0.watchFor(0x3E4);                      // Indicator
 
+  isCANMode = true;  // Set communication mode indicator
   Serial.println("CAN mode aktif.");
 }
 
@@ -33,6 +34,8 @@ void handleCANCommunication() {
   refreshRate = (elapsed > 0) ? (1000 / elapsed) : 0;
   lastRefresh = millis();
   unsigned long currentTime = millis();
+  
+  isCANMode = true;  // We're in CAN mode when this function is called
   
   if (CAN0.available()) {
     CAN_FRAME can_message;

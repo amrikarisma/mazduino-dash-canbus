@@ -29,6 +29,7 @@ uint16_t spr_width = 0;
 // Communication variables
 int commMode = COMM_CAN;
 bool sent = false, received = true;
+bool isCANMode = true;  // Default to CAN mode
 
 // WiFi variables
 bool wifiActive = true;
