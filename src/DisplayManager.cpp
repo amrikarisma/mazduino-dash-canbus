@@ -167,21 +167,27 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
   const int LABEL_HEIGHT = BOX_HEIGHT / 2;
 
   if (setup) {
+    // Clear the entire data box area first only during setup
+    display.fillRect(x, y, BOX_WIDTH, BOX_HEIGHT, TFT_BLACK);
+    
     spr.loadFont(AA_FONT_SMALL);
     spr.createSprite(BOX_WIDTH, LABEL_HEIGHT);
+    spr.fillSprite(TFT_BLACK);  // Clear sprite background
     spr.setTextColor(labelColor, TFT_BLACK, true);
-    spr.drawString(label, 50, 5);
     spr.setTextDatum(TC_DATUM);
+    spr.drawString(label, 50, 5);
     if (label == "AFR") {
       spr.pushSprite(x - 10, y);
     } else {
       spr.pushSprite(x, y);
     }
+    spr.deleteSprite();
   }
   
-  if (valueToCompare != value) {
+  if (setup || valueToCompare != value) {
     spr.loadFont(AA_FONT_LARGE);
     spr.createSprite(BOX_WIDTH, LABEL_HEIGHT);
+    spr.fillSprite(TFT_BLACK);  // Clear sprite background
     spr.setTextDatum(TC_DATUM);
     spr_width = spr.textWidth("333");
     spr.setTextColor(labelColor, TFT_BLACK, true);
