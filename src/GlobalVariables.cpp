@@ -36,3 +36,12 @@ uint32_t lastClientCheck = 0;
 uint32_t lastClientCheckTimeout = 0;
 uint32_t wifiTimeout = 30000;
 bool clientConnected = true;
+
+// Debug variables
+bool debugMode = false;
+float cpuUsage = 0.0;
+float fps = 0.0;
+uint32_t frameCount = 0;
+uint32_t lastFpsUpdate = 0;
+uint32_t lastCpuMeasure = 0;
+uint32_t loopStartTime = 0;

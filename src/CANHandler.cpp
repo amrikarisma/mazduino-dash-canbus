@@ -103,31 +103,31 @@ void handleCANCommunication() {
     }
   }
 
-  if (currentTime - lastPrintTime >= 1000) {
-    Serial.print("RPM: ");
-    Serial.print(rpm);
-    Serial.print(" MAP: ");
-    Serial.print(mapData);
-    Serial.print(" kPa TPS: ");
-    Serial.print(tps);
-    Serial.print(" % ADV:");
-    Serial.print(adv);
-    Serial.print(" ° Fuel Pressure: ");
-    Serial.print(fp);
-    Serial.print(" kPa AFR: ");
-    Serial.print(afrConv, 2);
-    Serial.print(" VSS: ");
-    Serial.print(vss);
-    Serial.print(" km/h Voltage: ");
-    Serial.print(bat, 2);
-    Serial.print(" V CLT: ");
-    Serial.print(clt);
-    Serial.print(" °C IAT: ");
-    Serial.print(iat);
-    Serial.print(" °C Trigger Error: ");
-    Serial.print(triggerError);
-    Serial.println();
+//   if (currentTime - lastPrintTime >= 1000) {
+//     Serial.print("RPM: ");
+//     Serial.print(rpm);
+//     Serial.print(" MAP: ");
+//     Serial.print(mapData);
+//     Serial.print(" kPa TPS: ");
+//     Serial.print(tps);
+//     Serial.print(" % ADV:");
+//     Serial.print(adv);
+//     Serial.print(" ° Fuel Pressure: ");
+//     Serial.print(fp);
+//     Serial.print(" kPa AFR: ");
+//     Serial.print(afrConv, 2);
+//     Serial.print(" VSS: ");
+//     Serial.print(vss);
+//     Serial.print(" km/h Voltage: ");
+//     Serial.print(bat, 2);
+//     Serial.print(" V CLT: ");
+//     Serial.print(clt);
+//     Serial.print(" °C IAT: ");
+//     Serial.print(iat);
+//     Serial.print(" °C Trigger Error: ");
+//     Serial.print(triggerError);
+//     Serial.println();
 
-    lastPrintTime = currentTime;
-  }
+//     lastPrintTime = currentTime;
+//   }
 }

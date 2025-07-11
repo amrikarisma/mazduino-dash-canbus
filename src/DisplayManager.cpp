@@ -5,6 +5,9 @@
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 #include <EEPROM.h>
+#if ENABLE_SIMULATOR
+#include "Simulator.h"
+#endif
 
 TFT_eSPI display = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&display);
@@ -137,4 +140,49 @@ void drawData() {
     lastRpm = rpm;
   }
   itemDraw(false);
+  
+#if ENABLE_SIMULATOR
+  // Draw simulator indicator if simulator is active
+  static uint8_t lastSimMode = SIMULATOR_MODE_OFF;
+  uint8_t currentSimMode = getSimulatorMode();
+  
+  if (currentSimMode != SIMULATOR_MODE_OFF) {
+    display.loadFont(AA_FONT_SMALL);
+    display.setTextColor(TFT_YELLOW, TFT_BLACK);
+    display.setTextDatum(TR_DATUM);
+    display.drawString("SIM", display.width() - 5, 5);
+  } else if (lastSimMode != SIMULATOR_MODE_OFF) {
+    // Clear the SIM indicator when simulator is turned off
+    display.fillRect(display.width() - 30, 5, 25, 15, TFT_BLACK);
+  }
+  
+  lastSimMode = currentSimMode;
+#endif
+
+#if ENABLE_DEBUG_MODE
+  // Draw debug information at center top if debug mode is active
+  static bool lastDebugMode = false;
+  if (debugMode) {
+    display.loadFont(AA_FONT_SMALL);
+    display.setTextColor(TFT_CYAN, TFT_BLACK);
+    display.setTextDatum(TC_DATUM);
+    
+    int centerX = display.width() / 2;
+    
+    // Create debug info string - show only essential info in one line
+    String debugInfo = "CPU:" + String(cpuUsage, 1) + "% FPS:" + String(fps, 1) + " Heap:" + String(ESP.getFreeHeap()/1024) + "K";
+    
+    // Draw debug info at center top
+    display.drawString(debugInfo, centerX, 5);
+    
+    lastDebugMode = true;
+  } else {
+    // Clear debug area when debug mode is turned off
+    if (lastDebugMode) {
+      // Clear the top center area where debug info was displayed
+      display.fillRect(0, 5, display.width(), 20, TFT_BLACK);
+      lastDebugMode = false;
+    }
+  }
+#endif
 }

@@ -20,26 +20,60 @@ void drawSmallButton(int x, int y, const char* label, bool value) {
 }
 
 void drawRPMBarBlocks(int rpm, int maxRPM) {
+  static int lastFilledBlocks = -1; // Remember last state to avoid unnecessary redraws
+  static uint32_t lastUpdate = 0;
+  static bool firstRun = true;
+  
+  // Limit update frequency to reduce flicker
+  if (millis() - lastUpdate < 50) { // Update max every 50ms
+    return;
+  }
+  lastUpdate = millis();
+  
   int startX = 120;     // Starting X position
   int startY[30] = {80, 75, 70, 65, 60, 57, 54, 51, 48, 46, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45};
-  int blockWidth = 6; // Width of each block
+  int blockWidth = 6;   // Width of each block
   int blockHeight = 70; // Height of each block
-  int spacing = 2;     // Spacing between blocks
-  int numBlocks = 30;  // Total number of blocks
+  int spacing = 2;      // Spacing between blocks
+  int numBlocks = 30;   // Total number of blocks
 
   // Calculate number of filled blocks based on RPM value
-  int filledBlocks = map(rpm, 0, maxRPM, 0, numBlocks);
+  int filledBlocks = 0;
+  if (rpm > 0) {
+    filledBlocks = map(rpm, 0, maxRPM, 1, numBlocks); // Start from 1, not 0
+    filledBlocks = constrain(filledBlocks, 1, numBlocks); // Ensure 1-30 range when RPM > 0
+  }
+  // When RPM = 0, filledBlocks = 0 (no blocks lit)
+  
+  // Only redraw if the number of filled blocks has changed OR first run
+  if (filledBlocks == lastFilledBlocks && !firstRun) {
+    return;
+  }
 
-  // Clear the entire bar area first
-  display.fillRect(startX - 5, 40, (blockWidth + spacing) * numBlocks + 10, blockHeight + 50, TFT_BLACK);
+  // If first run, clear entire area and initialize all blocks as empty
+  if (firstRun) {
+    display.fillRect(startX - 5, 40, (blockWidth + spacing) * numBlocks + 10, blockHeight + 50, TFT_BLACK);
+    // Draw all blocks as empty initially
+    for (int i = 0; i < numBlocks; i++) {
+      int blockX = startX + i * (blockWidth + spacing);
+      int blockY = startY[i];
+      display.fillRect(blockX, blockY, blockWidth, blockHeight, TFT_DARKGREY);
+    }
+    firstRun = false;
+  }
 
+  // Force update ALL blocks to ensure correct state
   for (int i = 0; i < numBlocks; i++) {
     int blockX = startX + i * (blockWidth + spacing);
     int blockY = startY[i];
     uint16_t color;
     
-    if (i < filledBlocks) {
-      // Block is filled
+    // Determine color based on current state - VERY EXPLICIT
+    if (rpm == 0) {
+      // Force all blocks to be empty when RPM is 0
+      color = TFT_DARKGREY;
+    } else if (i < filledBlocks) {
+      // Block should be filled when RPM > 0
       if (i < 15) {
         color = TFT_GREEN;   // Green for normal RPM
       } else if (i < 25) {
@@ -48,9 +82,17 @@ void drawRPMBarBlocks(int rpm, int maxRPM) {
         color = TFT_RED;     // Red for danger zone
       }
     } else {
-      color = TFT_DARKGREY; // Unfilled block color
+      // Block should be empty
+      color = TFT_DARKGREY;
     }
     
-    display.fillRect(blockX, blockY, blockWidth, blockHeight, color);
+    // Only redraw if the color should change
+    if (lastFilledBlocks == -1 || 
+        (i < filledBlocks) != (i < lastFilledBlocks) ||
+        (rpm == 0 && lastFilledBlocks > 0)) {
+      display.fillRect(blockX, blockY, blockWidth, blockHeight, color);
+    }
   }
+  
+  lastFilledBlocks = filledBlocks;
 }

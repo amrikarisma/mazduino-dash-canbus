@@ -34,4 +34,13 @@ extern uint32_t lastClientCheckTimeout;
 extern uint32_t wifiTimeout;
 extern bool clientConnected;
 
+// Debug variables
+extern bool debugMode;
+extern float cpuUsage;
+extern float fps;
+extern uint32_t frameCount;
+extern uint32_t lastFpsUpdate;
+extern uint32_t lastCpuMeasure;
+extern uint32_t loopStartTime;
+
 #endif // DATATYPES_H
