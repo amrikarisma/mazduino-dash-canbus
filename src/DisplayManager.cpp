@@ -110,8 +110,9 @@ void drawConfigurableIndicators() {
 
 // New function to replace itemDraw with configurable panels
 void drawConfigurableData(bool setup) {
-  // Draw RPM (always shown)
-  if (lastRpm != rpm || setup) {
+  // Draw RPM with reduced frequency update (only when changed or setup)
+  static uint32_t lastRpmUpdate = 0;
+  if (lastRpm != rpm || setup || (millis() - lastRpmUpdate > 100)) {
     drawRPMBarBlocks(rpm);
     spr.loadFont(AA_FONT_LARGE);
     spr.createSprite(100, 50);
@@ -122,13 +123,22 @@ void drawConfigurableData(bool setup) {
     spr.pushSprite(190, 140);
     spr.deleteSprite();
     lastRpm = rpm;
+    lastRpmUpdate = millis();
   }
   
-  // Draw configurable panels
-  drawConfigurablePanels(setup);
+  // Draw configurable panels with reduced frequency
+  static uint32_t lastPanelUpdate = 0;
+  if (setup || (millis() - lastPanelUpdate > 50)) { // Update panels every 50ms max
+    drawConfigurablePanels(setup);
+    lastPanelUpdate = millis();
+  }
   
-  // Draw configurable indicators
-  drawConfigurableIndicators();
+  // Draw configurable indicators with reduced frequency
+  static uint32_t lastIndicatorUpdate = 0;
+  if (setup || (millis() - lastIndicatorUpdate > 100)) { // Update indicators every 100ms max
+    drawConfigurableIndicators();
+    lastIndicatorUpdate = millis();
+  }
 }
 
 void startUpDisplay() {
@@ -195,16 +205,17 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
 }
 
 void drawData() {
-  // Use configurable display system
+  // Use configurable display system with performance optimizations
   drawConfigurableData(false);
   
 #if ENABLE_SIMULATOR
-  // Draw simulator indicator if simulator is active
+  // Draw simulator indicator if simulator is active (with reduced update frequency)
   static uint8_t lastSimMode = SIMULATOR_MODE_OFF;
+  static uint32_t lastSimUpdate = 0;
   uint8_t currentSimMode = getSimulatorMode();
   
-  // Only redraw if simulator mode has changed
-  if (currentSimMode != lastSimMode) {
+  // Only redraw if simulator mode has changed or every 500ms
+  if (currentSimMode != lastSimMode || (millis() - lastSimUpdate > 500)) {
     if (currentSimMode != SIMULATOR_MODE_OFF) {
       // Clear the SIM area first
       display.fillRect(display.width() - 30, 5, 25, 15, TFT_BLACK);
@@ -220,17 +231,19 @@ void drawData() {
     }
     
     lastSimMode = currentSimMode;
+    lastSimUpdate = millis();
   }
 #endif
 
-  // Draw communication mode indicator (top left)
+  // Draw communication mode indicator (top left) with reduced update frequency
   static bool lastCommMode = true;  // Track changes
   static String lastCommText = "";
+  static uint32_t lastCommUpdate = 0;
   
   String currentCommText = isCANMode ? "CAN" : "SER";
   
-  // Only redraw if communication mode has changed
-  if (isCANMode != lastCommMode || currentCommText != lastCommText) {
+  // Only redraw if communication mode has changed or every 1000ms
+  if (isCANMode != lastCommMode || currentCommText != lastCommText || (millis() - lastCommUpdate > 1000)) {
     // Clear the comm mode area first
     display.fillRect(5, 5, 40, 15, TFT_BLACK);
     
@@ -242,10 +255,10 @@ void drawData() {
     
     lastCommMode = isCANMode;
     lastCommText = currentCommText;
+    lastCommUpdate = millis();
   }
 
 #if ENABLE_DEBUG_MODE
-  // Draw debug information at center top if debug mode is active
   static bool lastDebugMode = false;
   static String lastDebugInfo = "";
   
@@ -253,7 +266,6 @@ void drawData() {
     // Create debug info string - show only essential info in one line
     String debugInfo = "CPU:" + String(cpuUsage, 1) + "% FPS:" + String(fps, 1) + " Heap:" + String(ESP.getFreeHeap()/1024) + "K";
     
-    // Only redraw if debug info has changed or we just entered debug mode
     if (debugInfo != lastDebugInfo || !lastDebugMode) {
       int centerX = display.width() / 2;
       

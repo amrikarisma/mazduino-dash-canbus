@@ -24,8 +24,8 @@ void drawRPMBarBlocks(int rpm, int maxRPM) {
   static uint32_t lastUpdate = 0;
   static bool firstRun = true;
   
-  // Limit update frequency to reduce flicker
-  if (millis() - lastUpdate < 50) { // Update max every 50ms
+  // Limit update frequency to reduce flicker - increased from 50ms to 75ms for better performance
+  if (millis() - lastUpdate < 75) { // Update max every 75ms
     return;
   }
   lastUpdate = millis();

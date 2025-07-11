@@ -10,6 +10,7 @@ extern WebServer server;
 void setupWebServer();
 void startWebServer();
 void stopWebServer();
+void restartWebServer(); // New function for restarting WiFi
 void handleRoot();
 void handleUpdate();
 void handleToggle();

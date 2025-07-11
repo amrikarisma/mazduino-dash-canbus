@@ -814,6 +814,14 @@ void stopWebServer()
   }
 }
 
+void restartWebServer()
+{
+  if (!wifiActive) {
+    Serial.println("Restarting WiFi and Web Server...");
+    startWebServer();
+  }
+}
+
 void handleRoot()
 {
   server.send(200, "text/html", uploadPage);
@@ -880,8 +888,10 @@ void handleWebServerClients()
 {
   static uint32_t lastClientCheck = 0;
   static uint32_t lastClientConnectedTime = 0;
+  static uint32_t webServerStartTime = millis(); // Track when web server started
   static bool hasBeenConnected = false;
   
+  // Check client status every 1 second instead of every loop for better performance
   if (millis() - lastClientCheck >= 1000)
   {
     lastClientCheck = millis();
@@ -893,9 +903,9 @@ void handleWebServerClients()
       lastClientConnectedTime = millis();
       hasBeenConnected = true;
       
-      // Debug print every 10 seconds when clients are connected
+      // Debug print every 30 seconds when clients are connected (reduced frequency)
       static uint32_t lastDebugPrint = 0;
-      if (millis() - lastDebugPrint >= 10000) {
+      if (millis() - lastDebugPrint >= 30000) {
         Serial.printf("WiFi clients connected: %d\n", clientCount);
         lastDebugPrint = millis();
       }
@@ -913,9 +923,9 @@ void handleWebServerClients()
         return;
       }
       
-      // Also turn off if no one has ever connected after 5 minutes
+      // Also turn off if no one has ever connected after 5 minutes from web server start
       if (!hasBeenConnected && wifiActive && 
-          (millis() - startupTime > 300000))
+          (millis() - webServerStartTime > 300000))
       {
         Serial.println("No clients ever connected after 5 minutes - shutting down WiFi/Bluetooth");
         stopWebServer();
