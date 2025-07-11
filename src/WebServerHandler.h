@@ -8,6 +8,8 @@ extern WebServer server;
 
 // Function declarations
 void setupWebServer();
+void startWebServer();
+void stopWebServer();
 void handleRoot();
 void handleUpdate();
 void handleToggle();

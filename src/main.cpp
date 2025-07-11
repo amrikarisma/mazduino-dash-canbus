@@ -34,6 +34,8 @@ void handleSerialCommunication()
     lastUpdate = millis();
   }
 
+  isCANMode = false;  // We're in Serial mode when this function is called
+
   static uint32_t lastRefresh = millis();
   uint32_t elapsed = millis() - lastRefresh;
   refreshRate = (elapsed > 0) ? (1000 / elapsed) : 0;
@@ -267,8 +269,8 @@ void setup()
     Serial.println("Serial mode aktif.");
   }
 
-  // Initialize web server (currently commented out in original)
-  // setupWebServer();
+  // Initialize web server setup (will start after 15 seconds)
+  setupWebServer();
 
 #if ENABLE_SIMULATOR
   // Initialize simulator
@@ -306,6 +308,13 @@ void loop()
 #if ENABLE_DEBUG_MODE
   loopStartTime = millis(); // Start timing for CPU usage
 #endif
+
+  // Start web server after 15 seconds to avoid high startup power consumption
+  static bool webServerStarted = false;
+  if (!webServerStarted && (millis() - startupTime >= 15000)) {
+    startWebServer();
+    webServerStarted = true;
+  }
 
   // Handle all serial commands (simulator and debug) in one place
   handleSerialCommands();
@@ -350,6 +359,6 @@ void loop()
   // Update display
   drawData();
 
-  // Handle web server (currently commented out in original)
-  // handleWebServerClients();
+  // Handle web server clients with power-saving logic
+  handleWebServerClients();
 }

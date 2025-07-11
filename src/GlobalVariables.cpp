@@ -2,7 +2,7 @@
 #include "Config.h"
 
 // Configuration variables from Config.h
-const char *version = "0.1.1";
+const char *version = "1.2";
 const char *ssid = "MAZDUINO_Display";
 const char *password = "12345678";
 
@@ -29,6 +29,7 @@ uint16_t spr_width = 0;
 // Communication variables
 int commMode = COMM_CAN;
 bool sent = false, received = true;
+bool isCANMode = true;  // Default to CAN mode
 
 // WiFi variables
 bool wifiActive = true;

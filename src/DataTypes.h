@@ -26,6 +26,7 @@ extern uint16_t spr_width;
 // Communication variables
 extern int commMode;
 extern bool sent, received;
+extern bool isCANMode;  // true for CAN, false for Serial
 
 // WiFi variables
 extern bool wifiActive;
