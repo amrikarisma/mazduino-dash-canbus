@@ -106,11 +106,15 @@ void drawConfigurableIndicators() {
   int indicatorY = 285;  // Positioned in the middle area
   int indicatorWidth = 60; // Made slightly smaller to fit better
   
+  // Pack enabled indicators without gaps
+  int currentPosition = 0;
   for (int i = 0; i < currentDisplayConfig.activeIndicatorCount; i++) {
     IndicatorConfig &indicator = currentDisplayConfig.indicators[i];
     if (indicator.enabled && indicator.position < 8) {
       bool state = getIndicatorValue(indicator.indicator);
-      drawSmallButton(indicatorX + (indicatorWidth * indicator.position), indicatorY, indicator.label, state);
+      // Use currentPosition instead of indicator.position to pack without gaps
+      drawSmallButton(indicatorX + (indicatorWidth * currentPosition), indicatorY, indicator.label, state);
+      currentPosition++; // Increment position for next enabled indicator
     }
   }
 }
