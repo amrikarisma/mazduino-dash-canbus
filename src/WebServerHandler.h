@@ -15,5 +15,14 @@ void handleRoot();
 void handleUpdate();
 void handleToggle();
 void handleWebServerClients();
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void handleCanSpeed();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // WEB_SERVER_HANDLER_H

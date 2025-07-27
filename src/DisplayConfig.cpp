@@ -31,7 +31,8 @@ DisplayConfiguration defaultDisplayConfig = {
   8, // activePanelCount
   8, // activeIndicatorCount
   0, // rpmDisplayMode (bar)
-  true // showSystemIndicators
+  true, // showSystemIndicators
+  500000 // canSpeed default 500Kbps
 };
 
 DisplayConfiguration currentDisplayConfig;
@@ -166,4 +167,18 @@ uint16_t getDataSourceColor(uint8_t dataSource, float value) {
     default:
       return TFT_WHITE;
   }
+}
+
+uint32_t getCanSpeed() {
+  if (currentDisplayConfig.canSpeed == 500000 || currentDisplayConfig.canSpeed == 1000000) {
+    return currentDisplayConfig.canSpeed;
+  } else {
+    // Jika belum pernah di-set atau nilai tidak valid, pakai default 500000
+    return 500000;
+  }
+}
+
+void setCanSpeed(uint32_t speed) {
+  currentDisplayConfig.canSpeed = speed;
+  saveDisplayConfig();
 }

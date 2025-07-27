@@ -68,6 +68,7 @@ struct DisplayConfiguration {
   uint8_t activeIndicatorCount;     // Number of active indicators
   uint8_t rpmDisplayMode;           // RPM display mode (0=bar, 1=digital)
   bool showSystemIndicators;        // Show CAN/SER, DEBUG, SIM
+  uint32_t canSpeed;                // CAN speed in bps (e.g. 500000, 1000000)
 };
 
 // Default configuration
@@ -84,5 +85,8 @@ bool getIndicatorValue(uint8_t indicator);
 const char* getDataSourceName(uint8_t dataSource);
 const char* getIndicatorName(uint8_t indicator);
 uint16_t getDataSourceColor(uint8_t dataSource, float value);
+// New CAN speed accessors
+uint32_t getCanSpeed();
+void setCanSpeed(uint32_t speed);
 
 #endif // DISPLAY_CONFIG_H

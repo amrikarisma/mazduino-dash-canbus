@@ -1,4 +1,5 @@
 #include "CANHandler.h"
+#include "DisplayConfig.h"
 #include "Config.h"
 #include "DataTypes.h"
 #include <esp32_can.h>
@@ -6,7 +7,7 @@
 
 void setupCAN() {
   CAN0.setCANPins(GPIO_NUM_17, GPIO_NUM_16); // RX, TX
-  CAN0.begin(500000);                       // 500Kbps
+  CAN0.begin(getCanSpeed());                // Use configurable CAN speed
   CAN0.watchFor(0x360);                      // RPM, MAP, TPS
   CAN0.watchFor(0x361);                      // Fuel Pressure
   CAN0.watchFor(0x362);                      // Ignition Angle (Leading)
@@ -18,7 +19,7 @@ void setupCAN() {
   CAN0.watchFor(0x3E4);                      // Indicator
 
   isCANMode = true;  // Set communication mode indicator
-  Serial.println("CAN mode aktif.");
+  Serial.printf("CAN mode aktif. Speed: %u bps\n", getCanSpeed());
 }
 
 void canTask(void *pvParameters) {

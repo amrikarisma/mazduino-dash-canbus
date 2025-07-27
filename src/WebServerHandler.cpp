@@ -315,12 +315,35 @@ const char *uploadPage PROGMEM = R"rawliteral(
           });
       }
       
+      function updateCanSpeed() {
+        const select = document.getElementById('canSpeedSelect');
+        const speed = select.value;
+        fetch('/canspeed', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: 'speed=' + speed
+        })
+        .then(response => response.text())
+        .then(data => {
+          alert('CAN speed updated: ' + speed + ' bps');
+        });
+      }
+      function loadCanSpeed() {
+        fetch('/canspeed')
+          .then(response => response.text())
+          .then(speed => {
+            const select = document.getElementById('canSpeedSelect');
+            if (select) select.value = speed;
+          });
+      }
+      
       const startTime = Date.now()/1000;
       setInterval(refreshStatus, 1000);
       
       // Load display config on page load
       window.onload = function() {
         loadDisplayConfig();
+        loadCanSpeed();
       };
     </script>
   </head>
@@ -595,6 +618,21 @@ const char *uploadPage PROGMEM = R"rawliteral(
           WiFi will automatically turn off after 1 minute of inactivity to save power.
         </p>
       </div>
+      
+      <div class="section">
+        <h2>CAN Bus Configuration</h2>
+        <div class="config-item">
+          <label for="canSpeedSelect">CAN Speed:</label>
+          <select id="canSpeedSelect" onchange="updateCanSpeed()">
+            <option value="500000">500 Kbps</option>
+            <option value="1000000">1 Mbps</option>
+          </select>
+        </div>
+        <p style="font-size: 14px; opacity: 0.8;">
+          Pilih kecepatan CAN sesuai kebutuhan hardware/ECU Anda.<br>
+          Perubahan akan disimpan dan digunakan saat restart berikutnya.
+        </p>
+      </div>
     </div>
   </body>
 </html>
@@ -678,7 +716,7 @@ void startWebServer()
   server.on("/status", HTTP_GET, [&]()
             {
               String json = "{";
-              json += "\"commMode\":\"" + String(isCANMode ? "CAN Bus" : "Serial") + "\",";
+              json += "\"commMode\":\"" + String(commMode == COMM_CAN ? "CAN Bus" : "Serial") + "\",";
               json += "\"debugMode\":" + String(debugMode ? "true" : "false") + ",";
 #if ENABLE_SIMULATOR
               json += "\"simulatorMode\":" + String(getSimulatorMode()) + ",";
@@ -790,10 +828,14 @@ void startWebServer()
               server.send(200, "application/json", json);
             });
   
+  server.on("/canspeed", HTTP_GET, handleCanSpeed);
+  server.on("/canspeed", HTTP_POST, handleCanSpeed);
+  
   server.begin();
   wifiActive = true;
   Serial.println("Web server aktif.");
   Serial.printf("WiFi AP: %s\n", ssid);
+  
   Serial.printf("AP IP Address: %s\n", WiFi.softAPIP().toString().c_str());
   Serial.printf("Access web server at: http://%s/\n", WiFi.softAPIP().toString().c_str());
   esp_wifi_set_max_tx_power(78);
@@ -881,6 +923,29 @@ void handleToggle()
     server.send(200, "text/plain", "OK");
     delay(1000);
     ESP.restart();
+  }
+}
+
+void handleCanSpeed() {
+  if (server.method() == HTTP_GET) {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%u", getCanSpeed());
+    server.send(200, "text/plain", buf);
+  } else if (server.method() == HTTP_POST) {
+    if (server.hasArg("speed")) {
+      uint32_t speed = server.arg("speed").toInt();
+      if (speed == 500000 || speed == 1000000) {
+        setCanSpeed(speed);
+        server.send(200, "text/plain", "OK");
+        Serial.printf("CAN speed set to %u bps via webserver\n", speed);
+      } else {
+        server.send(400, "text/plain", "Invalid speed");
+      }
+    } else {
+      server.send(400, "text/plain", "Missing speed param");
+    }
+  } else {
+    server.send(405, "text/plain", "Method Not Allowed");
   }
 }
 
