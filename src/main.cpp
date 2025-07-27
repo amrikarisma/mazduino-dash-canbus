@@ -28,7 +28,8 @@ WebServer server(80);
 void handleSerialCommunication()
 {
   static uint32_t lastUpdate = millis();
-  if (millis() - lastUpdate > 10)
+  // Reduce serial communication frequency from 10ms to 20ms for better performance
+  if (millis() - lastUpdate > 20)
   {
     requestData(50);
     lastUpdate = millis();
@@ -41,7 +42,8 @@ void handleSerialCommunication()
   refreshRate = (elapsed > 0) ? (1000 / elapsed) : 0;
   lastRefresh = millis();
   
-  if (lastRefresh - lazyUpdateTime > 100 || rpm < 100)
+  // Reduce lazy update frequency from 100ms to 200ms for better performance
+  if (lastRefresh - lazyUpdateTime > 200 || rpm < 100)
   {
     clt = getByte(7) - 40;
     iat = getByte(6) - 40;
@@ -142,8 +144,16 @@ void handleSerialCommands()
         Serial.println("d = Toggle debug mode");
         Serial.println("i = Show system info");
 #endif
+        Serial.println("NETWORK COMMANDS:");
+        Serial.println("w = Restart WiFi/Web Server");
         Serial.println("h = Show this help");
         Serial.println("===================");
+        break;
+      case 'w':
+      case 'W':
+        // Restart WiFi/Web Server
+        Serial.println("Restarting WiFi and Web Server...");
+        restartWebServer();
         break;
     }
   }
@@ -216,7 +226,8 @@ void printDebugInfo()
   static uint32_t lastDebugPrint = 0;
   uint32_t currentTime = millis();
   
-  if (currentTime - lastDebugPrint >= 2000) { // Print every 2 seconds
+  // Increase debug print interval from 2s to 5s to reduce serial overhead
+  if (currentTime - lastDebugPrint >= 5000) { // Print every 5 seconds
     Serial.println("=== DEBUG INFO ===");
     Serial.printf("CPU Usage: %.1f%%\n", cpuUsage);
     Serial.printf("FPS: %.1f\n", fps);
@@ -225,8 +236,8 @@ void printDebugInfo()
     Serial.printf("RPM: %d\n", rpm);
     Serial.printf("Loop Time: %dms\n", millis() - loopStartTime);
     Serial.printf("Uptime: %ds\n", (currentTime - startupTime) / 1000);
-    Serial.printf("Debug Mode Variable: %d\n", debugMode);
-    Serial.printf("Frame Count: %d\n", frameCount);
+    Serial.printf("WiFi Active: %s\n", wifiActive ? "true" : "false");
+    Serial.printf("Client Connected: %s\n", clientConnected ? "true" : "false");
     Serial.println("==================");
     lastDebugPrint = currentTime;
   }
@@ -323,9 +334,9 @@ void loop()
   // Update simulator data if enabled - this overrides real data
   updateSimulatorData();
   
-  // Debug print every 5 seconds to verify simulator is running
+  // Reduce debug print frequency for simulator from 5s to 10s
   static uint32_t lastDebugPrint = 0;
-  if (millis() - lastDebugPrint > 5000) {
+  if (millis() - lastDebugPrint > 10000) {
     Serial.printf("[DEBUG] Simulator running, current RPM: %d, mode: %d, commMode: %d\n", rpm, getSimulatorMode(), commMode);
     lastDebugPrint = millis();
   }
@@ -360,5 +371,13 @@ void loop()
   drawData();
 
   // Handle web server clients with power-saving logic
-  handleWebServerClients();
+  // Reduce web server check frequency from every loop to every 10ms
+  static uint32_t lastWebServerCheck = 0;
+  if (millis() - lastWebServerCheck >= 10) {
+    handleWebServerClients();
+    lastWebServerCheck = millis();
+  }
+  
+  // Add small yield to prevent watchdog issues and improve multitasking
+  yield();
 }

@@ -3,6 +3,7 @@
 #include "DataTypes.h"
 #include "DisplayConfig.h"
 #include "drawing_utils.h"
+#include "SplashScreen.h"
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 #include <EEPROM.h>
@@ -21,20 +22,8 @@ void setupDisplay() {
 }
 
 void drawSplashScreenWithImage() {
-  display.fillScreen(TFT_BLACK);
-  display.loadFont(AA_FONT_LARGE);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-
-  display.setTextDatum(TC_DATUM);
-  int centerX = display.width() / 2;
-  int centerY = (display.height() / 2) - 35;
-
-  display.drawString("MAZDUINO Display", centerX, centerY);
-  display.loadFont(AA_FONT_SMALL);
-  display.drawString("Firmware version: " + String(version), centerX, centerY + 50);
-  display.drawString("www.mazduino.com", centerX, 300);
-
-  delay(5000);
+  // Use the new modular animated splash screen
+  showAnimatedSplashScreen();
 }
 
 void drawConfigurablePanels(bool setup) {
@@ -43,14 +32,14 @@ void drawConfigurablePanels(bool setup) {
   // RPM bar occupies roughly Y=40 to Y=150, so panels moved to avoid collision
   // Each panel is 80px tall, fitting 2 main panels per column + 1 bottom panel each
   int panelPositions[8][2] = {
-    {5, 10},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
-    {5, 100},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {5, 190},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {365, 10}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {365, 100}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {365, 190}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
-    {120, 190}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
-    {240, 190}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
+    {5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
+    {5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
+    {5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
+    {365, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
+    {365, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
+    {365, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
+    {120, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
+    {240, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
   };
   
   // Draw each enabled panel
@@ -67,14 +56,14 @@ void drawModularDataPanel(const DisplayPanel &panel, bool setup) {
   // RPM bar occupies roughly Y=40 to Y=150, so panels moved to avoid collision
   // Each panel is 80px tall, fitting 2 main panels per column + 1 bottom panel each
   int panelPositions[8][2] = {
-    {5, 10},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
-    {5, 100},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {5, 190},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {365, 10}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {365, 100}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {365, 190}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
-    {120, 190}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
-    {240, 190}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
+    {5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
+    {5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
+    {5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
+    {365, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
+    {365, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
+    {365, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
+    {120, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
+    {240, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
   };
   
   if (panel.position >= 8) return;
@@ -106,19 +95,24 @@ void drawConfigurableIndicators() {
   int indicatorY = 285;  // Positioned in the middle area
   int indicatorWidth = 60; // Made slightly smaller to fit better
   
+  // Pack enabled indicators without gaps
+  int currentPosition = 0;
   for (int i = 0; i < currentDisplayConfig.activeIndicatorCount; i++) {
     IndicatorConfig &indicator = currentDisplayConfig.indicators[i];
     if (indicator.enabled && indicator.position < 8) {
       bool state = getIndicatorValue(indicator.indicator);
-      drawSmallButton(indicatorX + (indicatorWidth * indicator.position), indicatorY, indicator.label, state);
+      // Use currentPosition instead of indicator.position to pack without gaps
+      drawSmallButton(indicatorX + (indicatorWidth * currentPosition), indicatorY, indicator.label, state);
+      currentPosition++; // Increment position for next enabled indicator
     }
   }
 }
 
 // New function to replace itemDraw with configurable panels
 void drawConfigurableData(bool setup) {
-  // Draw RPM (always shown)
-  if (lastRpm != rpm || setup) {
+  // Draw RPM with reduced frequency update (only when changed or setup)
+  static uint32_t lastRpmUpdate = 0;
+  if (lastRpm != rpm || setup || (millis() - lastRpmUpdate > 100)) {
     drawRPMBarBlocks(rpm);
     spr.loadFont(AA_FONT_LARGE);
     spr.createSprite(100, 50);
@@ -129,13 +123,22 @@ void drawConfigurableData(bool setup) {
     spr.pushSprite(190, 140);
     spr.deleteSprite();
     lastRpm = rpm;
+    lastRpmUpdate = millis();
   }
   
-  // Draw configurable panels
-  drawConfigurablePanels(setup);
+  // Draw configurable panels with reduced frequency
+  static uint32_t lastPanelUpdate = 0;
+  if (setup || (millis() - lastPanelUpdate > 50)) { // Update panels every 50ms max
+    drawConfigurablePanels(setup);
+    lastPanelUpdate = millis();
+  }
   
-  // Draw configurable indicators
-  drawConfigurableIndicators();
+  // Draw configurable indicators with reduced frequency
+  static uint32_t lastIndicatorUpdate = 0;
+  if (setup || (millis() - lastIndicatorUpdate > 100)) { // Update indicators every 100ms max
+    drawConfigurableIndicators();
+    lastIndicatorUpdate = millis();
+  }
 }
 
 void startUpDisplay() {
@@ -167,21 +170,27 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
   const int LABEL_HEIGHT = BOX_HEIGHT / 2;
 
   if (setup) {
+    // Clear the entire data box area first only during setup
+    display.fillRect(x, y, BOX_WIDTH, BOX_HEIGHT, TFT_BLACK);
+    
     spr.loadFont(AA_FONT_SMALL);
     spr.createSprite(BOX_WIDTH, LABEL_HEIGHT);
+    spr.fillSprite(TFT_BLACK);  // Clear sprite background
     spr.setTextColor(labelColor, TFT_BLACK, true);
-    spr.drawString(label, 50, 5);
     spr.setTextDatum(TC_DATUM);
+    spr.drawString(label, 50, 5);
     if (label == "AFR") {
       spr.pushSprite(x - 10, y);
     } else {
       spr.pushSprite(x, y);
     }
+    spr.deleteSprite();
   }
   
-  if (valueToCompare != value) {
+  if (setup || valueToCompare != value) {
     spr.loadFont(AA_FONT_LARGE);
     spr.createSprite(BOX_WIDTH, LABEL_HEIGHT);
+    spr.fillSprite(TFT_BLACK);  // Clear sprite background
     spr.setTextDatum(TC_DATUM);
     spr_width = spr.textWidth("333");
     spr.setTextColor(labelColor, TFT_BLACK, true);
@@ -196,16 +205,17 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
 }
 
 void drawData() {
-  // Use configurable display system
+  // Use configurable display system with performance optimizations
   drawConfigurableData(false);
   
 #if ENABLE_SIMULATOR
-  // Draw simulator indicator if simulator is active
+  // Draw simulator indicator if simulator is active (with reduced update frequency)
   static uint8_t lastSimMode = SIMULATOR_MODE_OFF;
+  static uint32_t lastSimUpdate = 0;
   uint8_t currentSimMode = getSimulatorMode();
   
-  // Only redraw if simulator mode has changed
-  if (currentSimMode != lastSimMode) {
+  // Only redraw if simulator mode has changed or every 500ms
+  if (currentSimMode != lastSimMode || (millis() - lastSimUpdate > 500)) {
     if (currentSimMode != SIMULATOR_MODE_OFF) {
       // Clear the SIM area first
       display.fillRect(display.width() - 30, 5, 25, 15, TFT_BLACK);
@@ -221,17 +231,19 @@ void drawData() {
     }
     
     lastSimMode = currentSimMode;
+    lastSimUpdate = millis();
   }
 #endif
 
-  // Draw communication mode indicator (top left)
+  // Draw communication mode indicator (top left) with reduced update frequency
   static bool lastCommMode = true;  // Track changes
   static String lastCommText = "";
+  static uint32_t lastCommUpdate = 0;
   
   String currentCommText = isCANMode ? "CAN" : "SER";
   
-  // Only redraw if communication mode has changed
-  if (isCANMode != lastCommMode || currentCommText != lastCommText) {
+  // Only redraw if communication mode has changed or every 1000ms
+  if (isCANMode != lastCommMode || currentCommText != lastCommText || (millis() - lastCommUpdate > 1000)) {
     // Clear the comm mode area first
     display.fillRect(5, 5, 40, 15, TFT_BLACK);
     
@@ -243,10 +255,10 @@ void drawData() {
     
     lastCommMode = isCANMode;
     lastCommText = currentCommText;
+    lastCommUpdate = millis();
   }
 
 #if ENABLE_DEBUG_MODE
-  // Draw debug information at center top if debug mode is active
   static bool lastDebugMode = false;
   static String lastDebugInfo = "";
   
@@ -254,7 +266,6 @@ void drawData() {
     // Create debug info string - show only essential info in one line
     String debugInfo = "CPU:" + String(cpuUsage, 1) + "% FPS:" + String(fps, 1) + " Heap:" + String(ESP.getFreeHeap()/1024) + "K";
     
-    // Only redraw if debug info has changed or we just entered debug mode
     if (debugInfo != lastDebugInfo || !lastDebugMode) {
       int centerX = display.width() / 2;
       

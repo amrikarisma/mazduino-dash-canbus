@@ -104,6 +104,48 @@
 
 ---
 
+## [1.2.1] - 2025-07-12
+
+### 🚀 Performance Optimizations
+- **Improved FPS**: Optimized display refresh rates from 15-25fps to 30-40fps target
+- **Reduced Serial Communication**: Increased serial update interval from 10ms to 20ms
+- **Smart Display Updates**: Added time-based update throttling for display components
+- **Efficient Memory Usage**: Optimized sprite operations and memory allocations
+
+### 🔧 WiFi & WebServer Improvements
+- **Fixed WiFi Timeout**: Corrected WiFi shutdown logic after 1 minute of inactivity
+- **Power Management**: Proper WiFi and Bluetooth shutdown for power saving
+- **Manual WiFi Restart**: Added 'w' command to restart WiFi/WebServer via serial
+- **Reduced Debug Overhead**: Optimized debug print frequencies to reduce serial load
+
+### 🖥️ Display Performance
+- **Throttled Updates**: 
+  - RPM display updates: every 100ms max
+  - Panel updates: every 50ms max  
+  - Indicator updates: every 100ms max
+  - RPM bar updates: every 75ms max
+- **Selective Redraws**: Only update display elements when values actually change
+- **Optimized Debug Display**: Reduced debug info update frequency to 1000ms
+
+### 🎨 Splash Screen Improvements
+- **Eliminated Slide Animations**: Replaced risky slide animations with safe fade effects
+- **Fade-In Title**: Smooth fade-in animation for main title
+- **Fade-In Website**: Cyan fade-in effect for website text
+- **No Ghosting**: Completely eliminated text ghosting issues
+
+### 🛠️ System Optimizations
+- **Reduced CPU Load**: Optimized main loop with yield() calls and reduced polling
+- **Better Multitasking**: Improved ESP32 task scheduling with strategic delays
+- **Enhanced Debug Info**: Added WiFi status and connection info to debug output
+- **Memory Efficiency**: Maintained stable memory usage at 15.9% RAM, 87.5% Flash
+
+### 📋 New Serial Commands
+- **'w' Command**: Restart WiFi and WebServer manually
+- **Enhanced Help**: Updated help system with all available commands
+- **Improved Debug**: Better debug information display
+
+---
+
 ### 💡 Highlights
 This version represents a major leap forward in functionality and user experience. The modular architecture makes the code more maintainable, while the web-based configuration system gives users unprecedented control over their display layout.
 

@@ -2,7 +2,7 @@
 #include "Config.h"
 
 // Configuration variables from Config.h
-const char *version = "1.2.0";
+const char *version = "1.2.1";
 const char *ssid = "MAZDUINO_Display";
 const char *password = "12345678";
 
