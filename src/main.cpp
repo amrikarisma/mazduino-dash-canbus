@@ -52,7 +52,7 @@ void handleSerialCommunication()
   
   rpm = getWord(14);
   mapData = getWord(4) / 10;
-  afrConv = getByte(10) / 10;
+  afrConv = getByte(10) *0.1;
   tps = getByte(24) / 2;
   adv = (int8_t)getByte(23);
   fp = getByte(103);
