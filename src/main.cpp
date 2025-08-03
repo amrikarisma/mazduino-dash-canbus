@@ -9,6 +9,7 @@
 #include "DataTypes.h"
 #include "BacklightControl.h"
 #include "CANHandler.h"
+#include "SerialHandler.h"
 #include "DisplayManager.h"
 #include "WebServerHandler.h"
 #include "GlobalVariables.h"
@@ -23,57 +24,6 @@
 
 // Web server
 WebServer server(80);
-
-// Serial communication handling
-void handleSerialCommunication()
-{
-  static uint32_t lastUpdate = millis();
-  // Reduce serial communication frequency from 10ms to 20ms for better performance
-  if (millis() - lastUpdate > 20)
-  {
-    requestData(50);
-    lastUpdate = millis();
-  }
-
-  isCANMode = false;  // We're in Serial mode when this function is called
-
-  static uint32_t lastRefresh = millis();
-  uint32_t elapsed = millis() - lastRefresh;
-  refreshRate = (elapsed > 0) ? (1000 / elapsed) : 0;
-  lastRefresh = millis();
-  
-  // Reduce lazy update frequency from 100ms to 200ms for better performance
-  if (lastRefresh - lazyUpdateTime > 200 || rpm < 100)
-  {
-    clt = getByte(7) - 40;
-    iat = getByte(6) - 40;
-    bat = getByte(9)* 0.1;
-  }
-  
-  rpm = getWord(14);
-  mapData = getWord(4) / 10;
-  afrConv = getByte(10) *0.1;
-  tps = getByte(24) / 2;
-  adv = (int8_t)getByte(23);
-  fp = getByte(103);
-
-  syncStatus = getBit(31, 7);
-  ase = getBit(2, 2);
-  wue = getBit(2, 3);
-  rev = getBit(31, 2);
-  launch = getBit(31, 0);
-  airCon = getByte(122);
-  fan = getBit(106, 3);
-  dfco = getBit(1, 4);
-
-  // Debug: Print data values occasionally
-  static uint32_t lastDataDebug = 0;
-  if (millis() - lastDataDebug > 5000) { // Print every 5 seconds
-    Serial.printf("[SERIAL] RPM: %d, MAP: %.1f, TPS: %.1f, CLT: %d, IAT: %d\n", 
-                  rpm, mapData, tps, clt, iat);
-    lastDataDebug = millis();
-  }
-}
 
 // Handle all serial commands in a single function to avoid conflicts
 void handleSerialCommands()
@@ -285,14 +235,19 @@ void setup()
     // Initialize CAN communication
     setupCAN();
     
-    // Create CAN task
+    // Create CAN task on core 0
     xTaskCreatePinnedToCore(canTask, "CAN Task", 4096, NULL, 1, NULL, 0);
     
     Serial.println("CAN mode aktif.");
   }
   else
   {
-    Serial1.begin(UART_BAUD, SERIAL_8N1, RXD, TXD);
+    // Initialize Serial communication
+    setupSerial();
+    
+    // Create Serial task on core 0
+    xTaskCreatePinnedToCore(serialTask, "Serial Task", 4096, NULL, 1, NULL, 0);
+    
     Serial.println("Serial mode aktif.");
   }
 
@@ -371,11 +326,7 @@ void loop()
 #if ENABLE_SIMULATOR
   if (getSimulatorMode() == SIMULATOR_MODE_OFF) {
 #endif
-    // Handle serial communication if not in CAN mode
-    if (commMode != COMM_CAN)
-    {
-      handleSerialCommunication();
-    }
+
 #if ENABLE_SIMULATOR
   }
 #endif
