@@ -35,8 +35,8 @@ TFT_eSprite spr = TFT_eSprite(&display);
 // #define RXD 2
 // #define TXD 3
 // ESP32-DEVKITC-V4
-#define RXD 16
-#define TXD 17
+#define RXD 26
+#define TXD 25
 
 // Backlight control
 #define BACKLIGHT_PIN 32

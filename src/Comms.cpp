@@ -23,9 +23,23 @@ void requestData(uint16_t timeout)
     uint8_t dataLen = Serial1.read();
     if (dataLen <= DATA_LEN) {
       Serial1.readBytes(buffer, dataLen);
+      // Debug: Print successful data read
+      static uint32_t lastDebugPrint = 0;
+      if (millis() - lastDebugPrint > 5000) { // Print every 5 seconds
+        Serial.printf("[SERIAL] Data received: %d bytes\n", dataLen);
+        lastDebugPrint = millis();
+      }
     } else {
-      Serial.println("Data overflow: Invalid data length");
+      Serial.println("[SERIAL] Data overflow: Invalid data length");
       Serial.println(dataLen);
+    }
+  } else {
+    // Debug: Print timeout or no data
+    static uint32_t lastTimeoutPrint = 0;
+    if (millis() - lastTimeoutPrint > 10000) { // Print every 10 seconds
+      Serial.printf("[SERIAL] No data received - timeout: %dms, available: %d\n", 
+                    end - start, Serial1.available());
+      lastTimeoutPrint = millis();
     }
   }
 }

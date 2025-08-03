@@ -47,7 +47,7 @@ void handleSerialCommunication()
   {
     clt = getByte(7) - 40;
     iat = getByte(6) - 40;
-    bat = getByte(9);
+    bat = getByte(9)* 0.1;
   }
   
   rpm = getWord(14);
@@ -65,6 +65,14 @@ void handleSerialCommunication()
   airCon = getByte(122);
   fan = getBit(106, 3);
   dfco = getBit(1, 4);
+
+  // Debug: Print data values occasionally
+  static uint32_t lastDataDebug = 0;
+  if (millis() - lastDataDebug > 5000) { // Print every 5 seconds
+    Serial.printf("[SERIAL] RPM: %d, MAP: %.1f, TPS: %.1f, CLT: %d, IAT: %d\n", 
+                  rpm, mapData, tps, clt, iat);
+    lastDataDebug = millis();
+  }
 }
 
 // Handle all serial commands in a single function to avoid conflicts
@@ -257,12 +265,20 @@ void setup()
   display.fillScreen(TFT_BLACK);
   
   Serial.begin(UART_BAUD);
-  EEPROM.write(1, 0);
-  EEPROM.commit();
   commMode = EEPROM.read(1);
+  
+  // If EEPROM is uninitialized (0xFF), set default to CAN mode
+  if (commMode == 255) {
+    commMode = COMM_CAN;
+    EEPROM.write(1, commMode);
+    EEPROM.commit();
+  }
   
   Serial.println("=== MAZDUINO DASHBOARD STARTING ===");
   Serial.printf("Communication mode: %s\n", (commMode == COMM_CAN) ? "CAN" : "Serial");
+  
+  // Synchronize isCANMode with commMode
+  isCANMode = (commMode == COMM_CAN);
   
   if (commMode == COMM_CAN)
   {
