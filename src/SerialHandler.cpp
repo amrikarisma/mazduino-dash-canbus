@@ -46,12 +46,13 @@ void handleSerialCommunication() {
   
   // Read primary engine data
   rpm = getWord(14);
-  mapData = getWord(4) / 10.0;
+  mapData = getWord(4);
   afrConv = getByte(10) * 0.1;
   tps = getByte(24) / 2.0;
   adv = (int8_t)getByte(23);
   fp = getByte(103);
-
+  vss = getWord(100);
+  
   // Read status bits
   syncStatus = getBit(31, 7);
   ase = getBit(2, 2);
