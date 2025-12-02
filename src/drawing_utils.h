@@ -2,9 +2,10 @@
 #define DRAWING_UTILS_H
 
 #include <stdint.h>
+#include "Config.h"
 
 void drawCenteredTextSmall(int x, int y, int w, int h, const char* text, int textSize, uint16_t color);
 void drawSmallButton(int x, int y, const char* label, bool value);
-void drawRPMBarBlocks(int rpm, int maxRPM = 6000);
+void drawRPMBarBlocks(int rpm, int maxRPM = DEFAULT_MAX_RPM);
 
 #endif // DRAWING_UTILS_H

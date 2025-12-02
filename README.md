@@ -24,3 +24,5 @@ Demonstrating the device in real-world applications.
 
 ## References:
 - [Haltech CAN ECU Broadcast Protocol](https://support.haltech.com/portal/en/kb/articles/haltech-can-ecu-broadcast-protocol)
+- https://rop.nl/truetype2gfx/
+- **[Image2CPP Tool](https://github.com/amrikarisma/image2cpp)** - Online tool for converting images to C/C++ arrays for embedded displays

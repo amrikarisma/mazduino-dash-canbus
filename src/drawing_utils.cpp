@@ -23,6 +23,8 @@ void drawRPMBarBlocks(int rpm, int maxRPM) {
   static int lastFilledBlocks = -1; // Remember last state to avoid unnecessary redraws
   static uint32_t lastUpdate = 0;
   static bool firstRun = true;
+  static bool labelsDrawn = false; // Flag to track if labels have been drawn
+
   
   // Limit update frequency to reduce flicker - increased from 50ms to 75ms for better performance
   if (millis() - lastUpdate < 75) { // Update max every 75ms
@@ -45,21 +47,46 @@ void drawRPMBarBlocks(int rpm, int maxRPM) {
   }
   // When RPM = 0, filledBlocks = 0 (no blocks lit)
   
-  // Only redraw if the number of filled blocks has changed OR first run
-  if (filledBlocks == lastFilledBlocks && !firstRun) {
-    return;
-  }
-
   // If first run, clear entire area and initialize all blocks as empty
   if (firstRun) {
-    display.fillRect(startX - 5, 40, (blockWidth + spacing) * numBlocks + 10, blockHeight + 50, TFT_BLACK);
+    display.fillRect(startX - 10, 40, (blockWidth + spacing) * numBlocks + 20, blockHeight + 80, TFT_BLACK);
     // Draw all blocks as empty initially
     for (int i = 0; i < numBlocks; i++) {
       int blockX = startX + i * (blockWidth + spacing);
       int blockY = startY[i];
       display.fillRect(blockX, blockY, blockWidth, blockHeight, TFT_DARKGREY);
     }
+    
+    // Reset labelsDrawn flag to ensure labels are drawn
+    labelsDrawn = false;
     firstRun = false;
+  }
+  
+  // Draw RPM labels if not already drawn
+  if (!labelsDrawn) {
+    display.setTextSize(1);
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    
+    // Calculate number of labels based on maxRPM (every 1000 RPM)
+    int numLabels = (maxRPM / 1000) + 1; // For 6000: 7 labels (0-6), For 8000: 9 labels (0-8)
+    int labelStep = 1000; // Every 1000 RPM
+    
+    for (int i = 0; i < numLabels; i++) {
+      int labelRPM = i * labelStep;
+      int labelBlock = map(labelRPM, 0, maxRPM, 0, numBlocks);
+      labelBlock = constrain(labelBlock, 0, numBlocks - 1);
+      
+      int labelX = startX + labelBlock * (blockWidth + spacing) + blockWidth / 2;
+      // Calculate Y position based on the specific block's Y position + block height + offset
+      int labelY = startY[labelBlock] + blockHeight + 8; // 8px below the specific block
+      
+      // Draw the label
+      display.setTextDatum(MC_DATUM);
+      display.drawString(String(labelRPM / 1000), labelX, labelY); // Show RPM in thousands
+      
+    }
+    
+    labelsDrawn = true;
   }
 
   // Force update ALL blocks to ensure correct state

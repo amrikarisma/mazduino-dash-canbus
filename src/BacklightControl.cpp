@@ -20,10 +20,10 @@ void adjustBacklightAutomatically() {
     uint8_t newBrightness = BACKLIGHT_BRIGHTNESS;
     
     // Reduce brightness when engine is running (RPM > 500)
-    if (rpm > 500) {
-      newBrightness = 80; // Dimmer when driving
+    if (rpm > 6000) {
+      newBrightness = 150; // Dimmer when driving
     } else {
-      newBrightness = 150; // Brighter when idle/parked
+      newBrightness = 80; // Brighter when idle/parked
     }
     
     setBacklightBrightness(newBrightness);

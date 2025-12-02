@@ -27,21 +27,6 @@ void drawSplashScreenWithImage() {
 }
 
 void drawConfigurablePanels(bool setup) {
-  // New panel positions to avoid RPM bar collision
-  // Layout: 3 left column, 3 right column
-  // RPM bar occupies roughly Y=40 to Y=150, so panels moved to avoid collision
-  // Each panel is 80px tall, fitting 2 main panels per column + 1 bottom panel each
-  int panelPositions[8][2] = {
-    {5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
-    {5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {365, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {365, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {365, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
-    {120, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
-    {240, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
-  };
-  
   // Draw each enabled panel
   for (int i = 0; i < currentDisplayConfig.activePanelCount; i++) {
     DisplayPanel &panel = currentDisplayConfig.panels[i];
@@ -56,12 +41,12 @@ void drawModularDataPanel(const DisplayPanel &panel, bool setup) {
   // RPM bar occupies roughly Y=40 to Y=150, so panels moved to avoid collision
   // Each panel is 80px tall, fitting 2 main panels per column + 1 bottom panel each
   int panelPositions[8][2] = {
-    {5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
-    {5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {365, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {365, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {365, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
+    {-5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
+    {-5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
+    {-5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
+    {380, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
+    {380, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
+    {380, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
     {120, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
     {240, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
   };
@@ -91,8 +76,8 @@ void drawConfigurableIndicators() {
   // Position indicators in the middle area between left/right columns
   // IAT and FP panels are at Y=280-360, center panels at Y=285-365
   // Place indicators between the main columns at Y=330
-  int indicatorX = 10;  // Positioned between left and right columns
-  int indicatorY = 285;  // Positioned in the middle area
+  int indicatorX = 5;  // Positioned between left and right columns
+  int indicatorY = 290;  // Positioned in the middle area
   int indicatorWidth = 60; // Made slightly smaller to fit better
   
   // Pack enabled indicators without gaps
@@ -110,19 +95,45 @@ void drawConfigurableIndicators() {
 
 // New function to replace itemDraw with configurable panels
 void drawConfigurableData(bool setup) {
-  // Draw RPM with reduced frequency update (only when changed or setup)
+  // Draw RPM and VSS with reduced frequency update (only when changed or setup)
   static uint32_t lastRpmUpdate = 0;
-  if (lastRpm != rpm || setup || (millis() - lastRpmUpdate > 100)) {
-    drawRPMBarBlocks(rpm);
-    spr.loadFont(AA_FONT_LARGE);
-    spr.createSprite(100, 50);
-    spr_width = spr.textWidth("7777");
+  static unsigned int lastVss = 999; // Different initial value to force first update
+  if (lastRpm != rpm || lastVss != vss || setup || (millis() - lastRpmUpdate > 100)) {
+    drawRPMBarBlocks(rpm); // Use default maxRPM from config
+    
+    // Draw RPM value with background and border
+    spr.loadFont(AA_FONT_SMALL);
+    spr.createSprite(90, 30);
+    spr_width = spr.textWidth("8888");
     spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
-    spr.setTextDatum(TR_DATUM);
-    spr.drawNumber(rpm, 100, 5);
-    spr.pushSprite(190, 140);
+    spr.setTextDatum(BR_DATUM);
+    spr.drawString("RPM", 80, 2); // Label at top
+    spr.setTextDatum(BR_DATUM);
+    spr.loadFont(AA_FONT_SMALL); // Use smaller font for RPM value to match existing pattern
+    spr.drawNumber(rpm, 80, 30); // Value at bottom with smaller font
+    spr.pushSprite(260, 15);
     spr.deleteSprite();
+    
+    // Draw VSS value with background and border
+    spr.createSprite(120, 50);
+    spr_width = spr.textWidth("888");
+    spr.setTextColor(TFT_ORANGE, TFT_BLACK, true);
+    
+    // Draw the numeric value with large font
+    spr.setTextDatum(BR_DATUM);
+    spr.loadFont(AA_FONT_LARGE);
+    spr.drawNumber(vss, 60, 46); // Value positioned to left
+    
+    // Draw "kph" unit with smaller font
+    spr.setTextDatum(BL_DATUM);
+    spr.loadFont(AA_FONT_SMALL);
+    spr.drawString("kph", 60, 46); // Unit positioned to right of value
+    
+    spr.pushSprite(280, 135);
+    spr.deleteSprite();
+    
     lastRpm = rpm;
+    lastVss = vss;
     lastRpmUpdate = millis();
   }
   
@@ -146,21 +157,14 @@ void startUpDisplay() {
   display.loadFont(AA_FONT_SMALL);
   spr.setColorDepth(16);
   display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.drawString("RPM", 190, 120);
   
   // Use configurable display system
   drawConfigurableData(true);
   
-  spr.loadFont(AA_FONT_LARGE);
-  for (int i = 6000; i >= 0; i -= 250) {
-    drawRPMBarBlocks(i);
-    spr.createSprite(100, 50);
-    spr_width = spr.textWidth("7777");
-    spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
-    spr.setTextDatum(TR_DATUM);
-    spr.drawNumber(i, 100, 5);
-    spr.pushSprite(190, 140);
-    spr.deleteSprite();
+  // Animation with both RPM and VSS values
+  spr.loadFont(AA_FONT_SMALL);
+  for (int i = DEFAULT_MAX_RPM; i >= 0; i -= 250) {
+    drawRPMBarBlocks(i); // Use default maxRPM from config
   }
 }
 

@@ -24,6 +24,9 @@ extern const char *password;
 #define COMM_CAN 0
 #define COMM_SERIAL 1
 
+// RPM Configuration
+#define DEFAULT_MAX_RPM 8000
+
 // Other constants
 #define EEPROM_SIZE 512
 

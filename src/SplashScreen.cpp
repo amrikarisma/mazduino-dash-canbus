@@ -182,5 +182,6 @@ void drawFadeOutTransition() {
   for (int alpha = 40; alpha >= 0; alpha -= 2) {
     uint16_t fadeColor = display.color565(0, alpha/2, alpha);
     display.fillScreen(fadeColor);
+    delay(10);
   }
 }

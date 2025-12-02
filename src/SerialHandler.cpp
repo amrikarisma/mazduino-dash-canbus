@@ -59,7 +59,7 @@ void handleSerialCommunication() {
   wue = getBit(2, 3);
   rev = getBit(31, 2);
   launch = getBit(31, 0);
-  airCon = getByte(122);
+  airCon = getBit(122, 1);
   fan = getBit(106, 3);
   dfco = getBit(1, 4);
 
