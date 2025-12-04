@@ -155,18 +155,19 @@ const char* getIndicatorName(uint8_t indicator) {
 }
 
 uint16_t getDataSourceColor(uint8_t dataSource, float value) {
-  switch (dataSource) {
-    case DATA_SOURCE_AFR:
-      return (value < 13.0) ? TFT_ORANGE : ((value > 14.7) ? TFT_RED : TFT_GREEN);
-    case DATA_SOURCE_COOLANT:
-      return (value > 95) ? TFT_RED : TFT_WHITE;
-    case DATA_SOURCE_VOLTAGE:
-      return (value < 11.5 || value > 14.5) ? TFT_ORANGE : TFT_GREEN;
-    case DATA_SOURCE_ADV:
-      return TFT_RED;
-    default:
-      return TFT_WHITE;
-  }
+  // switch (dataSource) {
+  //   case DATA_SOURCE_AFR:
+  //     return (value < 13.0) ? TFT_ORANGE : ((value > 14.7) ? TFT_RED : TFT_GREEN);
+  //   case DATA_SOURCE_COOLANT:
+  //     return (value > 95) ? TFT_RED : TFT_WHITE;
+  //   case DATA_SOURCE_VOLTAGE:
+  //     return (value < 11.5 || value > 14.5) ? TFT_ORANGE : TFT_GREEN;
+  //   case DATA_SOURCE_ADV:
+  //     return TFT_RED;
+  //   default:
+  //     return TFT_WHITE;
+  // }
+  return TFT_WHITE;
 }
 
 uint32_t getCanSpeed() {

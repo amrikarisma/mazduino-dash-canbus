@@ -111,13 +111,13 @@ void drawConfigurableData(bool setup) {
     spr.setTextDatum(BR_DATUM);
     spr.loadFont(AA_FONT_SMALL); // Use smaller font for RPM value to match existing pattern
     spr.drawNumber(rpm, 80, 30); // Value at bottom with smaller font
-    spr.pushSprite(260, 15);
+    spr.pushSprite(275, 15);
     spr.deleteSprite();
     
     // Draw VSS value with background and border
     spr.createSprite(120, 50);
     spr_width = spr.textWidth("888");
-    spr.setTextColor(TFT_ORANGE, TFT_BLACK, true);
+    spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
     
     // Draw the numeric value with large font
     spr.setTextDatum(BR_DATUM);
@@ -127,9 +127,9 @@ void drawConfigurableData(bool setup) {
     // Draw "kph" unit with smaller font
     spr.setTextDatum(BL_DATUM);
     spr.loadFont(AA_FONT_SMALL);
-    spr.drawString("kph", 60, 46); // Unit positioned to right of value
+    spr.drawString("kph", 62, 42); // Unit positioned to right of value
     
-    spr.pushSprite(280, 135);
+    spr.pushSprite(250, 135);
     spr.deleteSprite();
     
     lastRpm = rpm;
