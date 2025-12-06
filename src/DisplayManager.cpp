@@ -41,14 +41,14 @@ void drawModularDataPanel(const DisplayPanel &panel, bool setup) {
   // RPM bar occupies roughly Y=40 to Y=150, so panels moved to avoid collision
   // Each panel is 80px tall, fitting 2 main panels per column + 1 bottom panel each
   int panelPositions[8][2] = {
-    {-5, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
-    {-5, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {-5, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {380, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {380, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {380, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
-    {120, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
-    {240, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
+    {0, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
+    {0, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
+    {0, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
+    {390, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
+    {390, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
+    {390, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
+    {130, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
+    {250, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
   };
   
   if (panel.position >= 8) return;
@@ -169,7 +169,7 @@ void startUpDisplay() {
 }
 
 void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const float valueToCompare, const int decimal, bool setup) {
-  const int BOX_WIDTH = 100;
+  const int BOX_WIDTH = 80;
   const int BOX_HEIGHT = 80;
   const int LABEL_HEIGHT = BOX_HEIGHT / 2;
 
@@ -177,12 +177,16 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
     // Clear the entire data box area first only during setup
     display.fillRect(x, y, BOX_WIDTH, BOX_HEIGHT, TFT_BLACK);
     
+    // Draw border around the entire panel
+    display.drawRoundRect(x, y, BOX_WIDTH, BOX_HEIGHT, 5, TFT_DARKGREY);      // Outer border
+    display.drawRoundRect(x + 1, y + 1, BOX_WIDTH - 2, BOX_HEIGHT - 2, 4, labelColor); // Inner border with label color
+    
     spr.loadFont(AA_FONT_SMALL);
     spr.createSprite(BOX_WIDTH, LABEL_HEIGHT);
     spr.fillSprite(TFT_BLACK);  // Clear sprite background
     spr.setTextColor(labelColor, TFT_BLACK, true);
     spr.setTextDatum(TC_DATUM);
-    spr.drawString(label, 50, 5);
+    spr.drawString(label, 40, 5);
     if (label == "AFR") {
       spr.pushSprite(x - 10, y);
     } else {
@@ -199,9 +203,9 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
     spr_width = spr.textWidth("333");
     spr.setTextColor(labelColor, TFT_BLACK, true);
     if (decimal > 0) {
-      spr.drawFloat(value, decimal, 50, 5);
+      spr.drawFloat(value, decimal, 40, 5);
     } else {
-      spr.drawNumber(value, 50, 5);
+      spr.drawNumber(value, 40, 5);
     }
     spr.pushSprite(x, y + LABEL_HEIGHT - 15);
     spr.deleteSprite();
