@@ -2,6 +2,7 @@
 #include "Config.h"
 #include "DataTypes.h"
 #include "DisplayConfig.h"
+#include "SplashScreen.h"
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Update.h>
@@ -337,6 +338,29 @@ const char *uploadPage PROGMEM = R"rawliteral(
           });
       }
       
+      function updateSplashScreen() {
+        const select = document.getElementById('splashSelect');
+        const splash = select.value;
+        fetch('/splash', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: 'splash=' + splash
+        })
+        .then(response => response.text())
+        .then(data => {
+          alert('Splash screen updated: ' + (splash == '0' ? 'Mercedes' : 'Mazduino'));
+        });
+      }
+      
+      function loadSplashScreen() {
+        fetch('/splash')
+          .then(response => response.text())
+          .then(splash => {
+            const select = document.getElementById('splashSelect');
+            if (select) select.value = splash;
+          });
+      }
+      
       const startTime = Date.now()/1000;
       setInterval(refreshStatus, 1000);
       
@@ -344,6 +368,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
       window.onload = function() {
         loadDisplayConfig();
         loadCanSpeed();
+        loadSplashScreen();
       };
     </script>
   </head>
@@ -620,6 +645,21 @@ const char *uploadPage PROGMEM = R"rawliteral(
       </div>
       
       <div class="section">
+        <h2>Splash Screen Configuration</h2>
+        <div class="config-item">
+          <label for="splashSelect">Splash Screen:</label>
+          <select id="splashSelect" onchange="updateSplashScreen()">
+            <option value="0">Mercedes</option>
+            <option value="1">Mazduino</option>
+          </select>
+        </div>
+        <p style="font-size: 14px; opacity: 0.8;">
+          Pilih gambar yang akan ditampilkan saat startup.<br>
+          Perubahan akan disimpan dan digunakan saat restart berikutnya.
+        </p>
+      </div>
+      
+      <div class="section">
         <h2>CAN Bus Configuration</h2>
         <div class="config-item">
           <label for="canSpeedSelect">CAN Speed:</label>
@@ -830,6 +870,28 @@ void startWebServer()
   
   server.on("/canspeed", HTTP_GET, handleCanSpeed);
   server.on("/canspeed", HTTP_POST, handleCanSpeed);
+  
+  // Splash screen configuration handler
+  server.on("/splash", HTTP_GET, [&]() {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%d", getSplashScreenSelection());
+    server.send(200, "text/plain", buf);
+  });
+  
+  server.on("/splash", HTTP_POST, [&]() {
+    if (server.hasArg("splash")) {
+      int splash = server.arg("splash").toInt();
+      if (splash == 0 || splash == 1) { // SPLASH_MERCY or SPLASH_MAZDUINO
+        setSplashScreenSelection(splash);
+        server.send(200, "text/plain", "OK");
+        Serial.printf("Splash screen set to %s via webserver\n", (splash == 0 ? "Mercedes" : "Mazduino"));
+      } else {
+        server.send(400, "text/plain", "Invalid splash selection");
+      }
+    } else {
+      server.send(400, "text/plain", "Missing splash param");
+    }
+  });
   
   server.begin();
   wifiActive = true;

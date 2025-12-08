@@ -13,4 +13,8 @@ void drawPulsingTitle(int centerX, int centerY);
 void drawLoadingBar(int centerX, int centerY);
 void drawFadeOutTransition();
 
+// Splash screen selection functions
+int getSplashScreenSelection();
+void setSplashScreenSelection(int selection);
+
 #endif // SPLASHSCREEN_H

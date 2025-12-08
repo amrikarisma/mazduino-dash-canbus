@@ -40,4 +40,9 @@ extern const char *password;
 #define AA_FONT_SMALL NotoSansBold15
 #define AA_FONT_LARGE NotoSansBold36
 
+// Splash screen options
+#define SPLASH_MERCY 0
+#define SPLASH_MAZDUINO 1
+#define DEFAULT_SPLASH_SCREEN SPLASH_MAZDUINO
+
 #endif // CONFIG_H
