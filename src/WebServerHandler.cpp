@@ -14,6 +14,18 @@
 #include "Simulator.h"
 #endif
 
+// WiFi credentials storage in EEPROM
+#define WIFI_SSID_ADDR 50
+#define WIFI_PASS_ADDR 100
+#define WIFI_CONFIGURED_ADDR 149
+
+// WiFi connection variables
+String savedSSID = "";
+String savedPassword = "";
+bool isStationConnected = false;
+unsigned long lastWiFiCheck = 0;
+const unsigned long WiFiCheckInterval = 30000; // Check every 30 seconds
+
 // IP configuration - Simple approach, let ESP32 use default IP
 // Default AP IP is usually 192.168.4.1
 
@@ -369,6 +381,109 @@ const char *uploadPage PROGMEM = R"rawliteral(
           });
       }
       
+      // WiFi Management Functions
+      function scanWiFi() {
+        document.getElementById('wifi-list').style.display = 'none';
+        const button = event.target;
+        button.textContent = 'Scanning...';
+        button.disabled = true;
+        
+        fetch('/scan')
+          .then(response => response.json())
+          .then(networks => {
+            const select = document.getElementById('wifiSelect');
+            select.innerHTML = '<option value=\"\">Select a network...</option>';
+            
+            networks.forEach(network => {
+              const option = document.createElement('option');
+              option.value = network.ssid;
+              option.textContent = `${network.ssid} (${network.rssi}dBm) ${network.secure ? '🔒' : '🔓'}`;
+              select.appendChild(option);
+            });
+            
+            document.getElementById('wifi-list').style.display = 'block';
+            button.textContent = 'Scan WiFi Networks';
+            button.disabled = false;
+          })
+          .catch(error => {
+            alert('Failed to scan WiFi networks');
+            button.textContent = 'Scan WiFi Networks';
+            button.disabled = false;
+          });
+      }
+      
+      function selectWiFi() {
+        const select = document.getElementById('wifiSelect');
+        const ssidInput = document.getElementById('wifiSSID');
+        ssidInput.value = select.value;
+      }
+      
+      function connectWiFi() {
+        const ssid = document.getElementById('wifiSSID').value;
+        const password = document.getElementById('wifiPassword').value;
+        
+        if (!ssid) {
+          alert('Please enter WiFi SSID');
+          return;
+        }
+        
+        const button = event.target;
+        button.textContent = 'Connecting...';
+        button.disabled = true;
+        
+        fetch('/connect', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'connected') {
+            alert(`Connected to WiFi!\\nIP Address: ${data.ip}`);
+          } else {
+            alert('Failed to connect to WiFi. Please check credentials.');
+          }
+          button.textContent = 'Connect to WiFi';
+          button.disabled = false;
+          loadWiFiStatus();
+        })
+        .catch(error => {
+          alert('Connection error');
+          button.textContent = 'Connect to WiFi';
+          button.disabled = false;
+        });
+      }
+      
+      function disconnectWiFi() {
+        if (confirm('Disconnect from WiFi network?')) {
+          fetch('/disconnect', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+              alert('WiFi disconnected');
+              document.getElementById('wifiSSID').value = '';
+              document.getElementById('wifiPassword').value = '';
+              loadWiFiStatus();
+            });
+        }
+      }
+      
+      function loadWiFiStatus() {
+        fetch('/wifi-status')
+          .then(response => response.json())
+          .then(status => {
+            document.getElementById('ap-ip').textContent = status.ap_ip;
+            
+            const staStatus = document.getElementById('sta-status');
+            if (status.sta_connected === true) {
+              staStatus.innerHTML = `<span style=\"color: #4CAF50;\">Connected to ${status.sta_ssid} (${status.sta_ip})</span>`;
+            } else if (status.sta_ssid && status.sta_ssid !== 'none') {
+              staStatus.innerHTML = `<span style=\"color: #f39c12;\">Saved: ${status.sta_ssid} (Not connected)</span>`;
+            } else {
+              staStatus.innerHTML = `<span style=\"color: #e74c3c;\">Not connected</span>`;
+            }
+          });
+      }
+      
       const startTime = Date.now()/1000;
       setInterval(refreshStatus, 1000);
       
@@ -377,6 +492,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
         loadDisplayConfig();
         loadCanSpeed();
         loadSplashScreen();
+        loadWiFiStatus();
       };
     </script>
   </head>
@@ -670,6 +786,44 @@ const char *uploadPage PROGMEM = R"rawliteral(
       </div>
       
       <div class="section">
+        <h2>WiFi Configuration</h2>
+        <div id="wifi-status" class="status-box" style="margin-bottom: 15px;">
+          <div>AP Mode: <span id="ap-ip">Loading...</span></div>
+          <div>Station: <span id="sta-status">Loading...</span></div>
+        </div>
+        
+        <div class="config-item">
+          <button onclick="scanWiFi()" class="btn" style="margin-bottom: 10px;">Scan WiFi Networks</button>
+          <div id="wifi-list" style="display: none;">
+            <label for="wifiSelect">Available Networks:</label>
+            <select id="wifiSelect" onchange="selectWiFi()">
+              <option value="">Select a network...</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="config-item">
+          <label for="wifiSSID">WiFi SSID:</label>
+          <input type="text" id="wifiSSID" placeholder="Enter WiFi network name">
+        </div>
+        
+        <div class="config-item">
+          <label for="wifiPassword">WiFi Password:</label>
+          <input type="password" id="wifiPassword" placeholder="Enter WiFi password">
+        </div>
+        
+        <div class="config-item">
+          <button onclick="connectWiFi()" class="btn">Connect to WiFi</button>
+          <button onclick="disconnectWiFi()" class="btn" style="background-color: #e74c3c;">Disconnect</button>
+        </div>
+        
+        <p style="font-size: 14px; opacity: 0.8;">
+          ESP32 akan beroperasi dalam dual mode (AP + Station).<br>
+          Mode AP tetap aktif untuk konfigurasi, sambil terhubung ke router untuk internet.
+        </p>
+      </div>
+      
+      <div class="section">
         <h2>CAN Bus Configuration</h2>
         <div class="config-item">
           <label for="canSpeedSelect">CAN Speed:</label>
@@ -688,6 +842,89 @@ const char *uploadPage PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
+// WiFi management functions
+void loadWiFiCredentials() {
+  if (EEPROM.read(WIFI_CONFIGURED_ADDR) == 1) {
+    char ssidBuf[32] = {0};
+    char passBuf[64] = {0};
+    
+    for (int i = 0; i < 31; i++) {
+      ssidBuf[i] = EEPROM.read(WIFI_SSID_ADDR + i);
+      if (ssidBuf[i] == 0) break;
+    }
+    
+    for (int i = 0; i < 63; i++) {
+      passBuf[i] = EEPROM.read(WIFI_PASS_ADDR + i);
+      if (passBuf[i] == 0) break;
+    }
+    
+    savedSSID = String(ssidBuf);
+    savedPassword = String(passBuf);
+    Serial.printf("Loaded WiFi credentials: %s\\n", savedSSID.c_str());
+  }
+}
+
+void saveWiFiCredentials(String ssid, String password) {
+  // Clear the memory areas first
+  for (int i = 0; i < 32; i++) EEPROM.write(WIFI_SSID_ADDR + i, 0);
+  for (int i = 0; i < 64; i++) EEPROM.write(WIFI_PASS_ADDR + i, 0);
+  
+  // Write SSID
+  for (int i = 0; i < ssid.length() && i < 31; i++) {
+    EEPROM.write(WIFI_SSID_ADDR + i, ssid[i]);
+  }
+  
+  // Write Password
+  for (int i = 0; i < password.length() && i < 63; i++) {
+    EEPROM.write(WIFI_PASS_ADDR + i, password[i]);
+  }
+  
+  // Mark as configured
+  EEPROM.write(WIFI_CONFIGURED_ADDR, 1);
+  EEPROM.commit();
+  
+  savedSSID = ssid;
+  savedPassword = password;
+  Serial.printf("Saved WiFi credentials: %s\\n", ssid.c_str());
+}
+
+void connectToWiFi() {
+  if (savedSSID.length() > 0) {
+    Serial.printf("Attempting to connect to: %s\\n", savedSSID.c_str());
+    WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
+    
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      isStationConnected = true;
+      Serial.printf("\\nConnected to WiFi! IP: %s\\n", WiFi.localIP().toString().c_str());
+    } else {
+      isStationConnected = false;
+      Serial.println("\\nFailed to connect to WiFi");
+    }
+  }
+}
+
+void checkWiFiConnection() {
+  unsigned long currentTime = millis();
+  if (currentTime - lastWiFiCheck > WiFiCheckInterval) {
+    lastWiFiCheck = currentTime;
+    
+    if (savedSSID.length() > 0 && WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi disconnected, attempting reconnection...");
+      isStationConnected = false;
+      connectToWiFi();
+    } else if (WiFi.status() == WL_CONNECTED) {
+      isStationConnected = true;
+    }
+  }
+}
+
 void setupWebServer()
 {
   // Don't start immediately - will be called after 15 seconds in main.cpp
@@ -698,9 +935,21 @@ void startWebServer()
 {
   Serial.println("Starting WiFi and Web Server...");
   
-  WiFi.mode(WIFI_MODE_AP);
-  // Use default IP configuration (192.168.4.1)
+  // Load saved WiFi credentials
+  loadWiFiCredentials();
+  
+  // Start in dual mode (AP + STA)
+  WiFi.mode(WIFI_AP_STA);
+  
+  // Configure and start AP
   WiFi.softAP(ssid, password);
+  Serial.printf("AP started: %s\\n", ssid);
+  Serial.printf("AP IP Address: %s\\n", WiFi.softAPIP().toString().c_str());
+  
+  // Try to connect to saved WiFi network
+  if (savedSSID.length() > 0) {
+    connectToWiFi();
+  }
   
   // Wait for AP to be ready
   delay(1000);
@@ -904,6 +1153,65 @@ void startWebServer()
     }
   });
   
+  // WiFi scan endpoint
+  server.on("/scan", HTTP_GET, [&]() {
+    String json = "[";
+    int n = WiFi.scanNetworks();
+    for (int i = 0; i < n; i++) {
+      if (i > 0) json += ",";
+      json += "{";
+      json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
+      json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+      json += "\"secure\":" + String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false");
+      json += "}";
+    }
+    json += "]";
+    server.send(200, "application/json", json);
+  });
+  
+  // WiFi connect endpoint
+  server.on("/connect", HTTP_POST, [&]() {
+    if (server.hasArg("ssid") && server.hasArg("password")) {
+      String ssid = server.arg("ssid");
+      String password = server.arg("password");
+      
+      saveWiFiCredentials(ssid, password);
+      connectToWiFi();
+      
+      String response = "{";
+      response += "\"status\":\"" + String(isStationConnected ? "connected" : "failed") + "\",";
+      response += "\"ip\":\"" + (isStationConnected ? WiFi.localIP().toString() : "none") + "\"";
+      response += "}";
+      
+      server.send(200, "application/json", response);
+    } else {
+      server.send(400, "application/json", "{\"error\":\"Missing ssid or password\"}");
+    }
+  });
+  
+  // WiFi status endpoint
+  server.on("/wifi-status", HTTP_GET, [&]() {
+    String json = "{";
+    json += "\"ap_ip\":\"" + WiFi.softAPIP().toString() + "\",";
+    json += "\"sta_connected\":" + String(isStationConnected ? "true" : "false") + ",";
+    json += "\"sta_ip\":\"" + (isStationConnected ? WiFi.localIP().toString() : "none") + "\",";
+    json += "\"sta_ssid\":\"" + (isStationConnected ? WiFi.SSID() : savedSSID) + "\"";
+    json += "}";
+    server.send(200, "application/json", json);
+  });
+  
+  // WiFi disconnect endpoint
+  server.on("/disconnect", HTTP_POST, [&]() {
+    WiFi.disconnect();
+    isStationConnected = false;
+    // Clear saved credentials
+    EEPROM.write(WIFI_CONFIGURED_ADDR, 0);
+    EEPROM.commit();
+    savedSSID = "";
+    savedPassword = "";
+    server.send(200, "application/json", "{\"status\":\"disconnected\"}");
+  });
+  
   server.begin();
   wifiActive = true;
   Serial.println("Web server aktif.");
@@ -1076,5 +1384,6 @@ void handleWebServerClients()
   if (wifiActive)
   {
     server.handleClient();
+    checkWiFiConnection();
   }
 }
