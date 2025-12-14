@@ -348,7 +348,15 @@ const char *uploadPage PROGMEM = R"rawliteral(
         })
         .then(response => response.text())
         .then(data => {
-          alert('Splash screen updated: ' + (splash == '0' ? 'Mercedes' : 'Mazduino'));
+          let splashName;
+          switch(splash) {
+            case '0': splashName = 'Mazduino'; break;
+            case '1': splashName = 'Mercedes'; break;
+            case '2': splashName = 'Hedon'; break;
+            case '3': splashName = 'Biies'; break;
+            default: splashName = 'Unknown'; break;
+          }
+          alert('Splash screen updated: ' + splashName);
         });
       }
       
@@ -649,8 +657,10 @@ const char *uploadPage PROGMEM = R"rawliteral(
         <div class="config-item">
           <label for="splashSelect">Splash Screen:</label>
           <select id="splashSelect" onchange="updateSplashScreen()">
-            <option value="0">Mercedes</option>
-            <option value="1">Mazduino</option>
+            <option value="0">Mazduino</option>
+            <option value="1">Mercedes</option>
+            <option value="2">Hedon</option>
+            <option value="3">Biies</option>
           </select>
         </div>
         <p style="font-size: 14px; opacity: 0.8;">
@@ -881,10 +891,11 @@ void startWebServer()
   server.on("/splash", HTTP_POST, [&]() {
     if (server.hasArg("splash")) {
       int splash = server.arg("splash").toInt();
-      if (splash == 0 || splash == 1) { // SPLASH_MERCY or SPLASH_MAZDUINO
+      if (splash >= 0 && splash <= 3) { // SPLASH_MAZDUINO, SPLASH_MERCY, SPLASH_HEDON, SPLASH_BIIES
         setSplashScreenSelection(splash);
         server.send(200, "text/plain", "OK");
-        Serial.printf("Splash screen set to %s via webserver\n", (splash == 0 ? "Mercedes" : "Mazduino"));
+        const char* splashNames[] = {"Mazduino", "Mercedes", "Hedon", "Biies"};
+        Serial.printf("Splash screen set to %s via webserver\n", splashNames[splash]);
       } else {
         server.send(400, "text/plain", "Invalid splash selection");
       }

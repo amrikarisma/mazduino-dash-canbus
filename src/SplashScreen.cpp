@@ -5,6 +5,8 @@
 #include "NotoSansBold36.h"
 #include "splash_image/mercy.h"
 #include "splash_image/mazduino.h"
+#include "splash_image/hedon.h"
+#include "splash_image/biies.h"
 #include <EEPROM.h>
 
 // External display object
@@ -18,8 +20,8 @@ void showAnimatedSplashScreen() {
   
   // Load splash screen preference from EEPROM
   selectedSplashScreen = EEPROM.read(10); // Use EEPROM address 10 for splash selection
-  if (selectedSplashScreen != SPLASH_MERCY && selectedSplashScreen != SPLASH_MAZDUINO) {
-    selectedSplashScreen = DEFAULT_SPLASH_SCREEN; // Default to mercy if invalid
+  if (selectedSplashScreen != SPLASH_MAZDUINO && selectedSplashScreen != SPLASH_MERCY && selectedSplashScreen != SPLASH_HEDON && selectedSplashScreen != SPLASH_BIIES) {
+    selectedSplashScreen = DEFAULT_SPLASH_SCREEN; // Default to mazduino if invalid
   }
   
   // Display the selected image with color byte swapping for correct colors
@@ -28,9 +30,18 @@ void showAnimatedSplashScreen() {
   if (selectedSplashScreen == SPLASH_MAZDUINO) {
     // Mazduino uses monochrome bitmap format, use drawBitmap with white color
     display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
-  } else {
+  } else if (selectedSplashScreen == SPLASH_MERCY) {
     // Mercy uses uint16_t RGB565 format, can use pushImage directly  
     display.pushImage(0, 0, 480, 320, epd_bitmap_mercy);
+  } else if (selectedSplashScreen == SPLASH_HEDON) {
+    // Hedon uses uint16_t RGB565 format, can use pushImage directly  
+    display.pushImage(0, 0, 480, 320, epd_bitmap_hedon);
+  } else if (selectedSplashScreen == SPLASH_BIIES) {
+    // Biies uses uint16_t RGB565 format, can use pushImage directly
+    display.pushImage(0, 0, 480, 320, epd_bitmap_biies);
+  } else {
+    // Default fallback to Mazduino
+    display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
   }
   
   display.setSwapBytes(false); // Disable byte swapping after image display
@@ -47,7 +58,7 @@ int getSplashScreenSelection() {
 }
 
 void setSplashScreenSelection(int selection) {
-  if (selection == SPLASH_MERCY || selection == SPLASH_MAZDUINO) {
+  if (selection == SPLASH_MAZDUINO || selection == SPLASH_MERCY || selection == SPLASH_HEDON || selection == SPLASH_BIIES) {
     selectedSplashScreen = selection;
     EEPROM.write(10, selection);
     EEPROM.commit();
