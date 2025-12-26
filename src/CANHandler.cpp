@@ -9,7 +9,7 @@ void setupCAN() {
   CAN0.setCANPins(GPIO_NUM_17, GPIO_NUM_16); // RX, TX
   CAN0.begin(getCanSpeed());                // Use configurable CAN speed
   CAN0.watchFor(0x360);                      // RPM, MAP, TPS
-  CAN0.watchFor(0x361);                      // Fuel Pressure
+  CAN0.watchFor(0x361);                      // Fuel Pressure, Oil Pressure, Wastegate Pressure
   CAN0.watchFor(0x362);                      // Ignition Angle (Leading)
   CAN0.watchFor(0x368);                      // AFR 01
   CAN0.watchFor(0x369);                      // Trigger System Error Count
@@ -54,6 +54,10 @@ void handleCANCommunication() {
         case 0x361: {
           uint16_t fuel_pressure = (can_message.data.byte[0] << 8) | can_message.data.byte[1];
           fp = fuel_pressure / 10 - 101.3;
+          uint16_t oil_pressure = (can_message.data.byte[2] << 8) | can_message.data.byte[3];
+          // op = oil_pressure / 10 - 101.3;
+          // uint16_t wastegate_pressure = (can_message.data.byte[6] << 8) | can_message.data.byte[7];
+          // wp = wastegate_pressure / 10 - 101.3;
           break;
         }
         case 0x368: {

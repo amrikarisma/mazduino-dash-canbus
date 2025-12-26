@@ -331,8 +331,7 @@ void loop()
   }
 #endif
 
-  // Update backlight brightness
-  adjustBacklightAutomatically();
+
 
   // Update display
   drawData();

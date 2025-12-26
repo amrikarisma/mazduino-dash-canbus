@@ -6,6 +6,7 @@
 // Function declarations
 void setupBacklight();
 void setBacklightBrightness(uint8_t brightness);
-void adjustBacklightAutomatically();
+void saveBrightnessToEEPROM();
+void loadBrightnessFromEEPROM();
 
 #endif // BACKLIGHT_CONTROL_H

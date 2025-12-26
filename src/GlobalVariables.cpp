@@ -25,6 +25,7 @@ uint32_t lastPrintTime = 0;
 uint32_t startupTime;
 uint32_t lazyUpdateTime;
 uint16_t spr_width = 0;
+uint8_t backlightBrightness = BACKLIGHT_BRIGHTNESS;
 
 // Communication variables
 int commMode = COMM_CAN;

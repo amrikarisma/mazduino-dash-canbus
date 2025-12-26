@@ -1,6 +1,7 @@
 #include "DisplayConfig.h"
 #include "DataTypes.h"
 #include "Config.h"
+#include "SplashScreen.h"
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
 
@@ -43,8 +44,8 @@ void initializeDisplayConfig() {
 }
 
 void saveDisplayConfig() {
-  // Save to EEPROM starting from address 10 (avoid conflict with existing settings)
-  EEPROM.put(10, currentDisplayConfig);
+  // Save to EEPROM starting from address 50 (avoid conflict with existing settings)
+  EEPROM.put(50, currentDisplayConfig);
   EEPROM.commit();
   Serial.println("Display configuration saved to EEPROM");
 }
@@ -52,7 +53,7 @@ void saveDisplayConfig() {
 void loadDisplayConfig() {
   // Try to load from EEPROM
   DisplayConfiguration tempConfig;
-  EEPROM.get(10, tempConfig);
+  EEPROM.get(50, tempConfig);
   
   // Check if loaded config is valid (simple validation)
   if (tempConfig.activePanelCount <= 8 && tempConfig.activeIndicatorCount <= 8) {
@@ -68,7 +69,12 @@ void loadDisplayConfig() {
 void resetDisplayConfigToDefault() {
   currentDisplayConfig = defaultDisplayConfig;
   saveDisplayConfig();
+  
+  // Also reset splash screen to default (Mazduino)
+  setSplashScreenSelection(DEFAULT_SPLASH_SCREEN);
+  
   Serial.println("Display configuration reset to default");
+  Serial.println("Splash screen reset to Mazduino");
 }
 
 float getDataValue(uint8_t dataSource) {

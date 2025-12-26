@@ -7,6 +7,8 @@
 #include "splash_image/mazduino.h"
 #include "splash_image/hedon.h"
 #include "splash_image/biies.h"
+#include "splash_image/zycas.h"
+#include "splash_image/spine.h"
 #include <EEPROM.h>
 
 // External display object
@@ -20,7 +22,7 @@ void showAnimatedSplashScreen() {
   
   // Load splash screen preference from EEPROM
   selectedSplashScreen = EEPROM.read(10); // Use EEPROM address 10 for splash selection
-  if (selectedSplashScreen != SPLASH_MAZDUINO && selectedSplashScreen != SPLASH_MERCY && selectedSplashScreen != SPLASH_HEDON && selectedSplashScreen != SPLASH_BIIES) {
+  if (selectedSplashScreen != SPLASH_MAZDUINO && selectedSplashScreen != SPLASH_MERCY && selectedSplashScreen != SPLASH_HEDON && selectedSplashScreen != SPLASH_BIIES && selectedSplashScreen != SPLASH_ZYCAS && selectedSplashScreen != SPLASH_SPINE) {
     selectedSplashScreen = DEFAULT_SPLASH_SCREEN; // Default to mazduino if invalid
   }
   
@@ -39,6 +41,12 @@ void showAnimatedSplashScreen() {
   } else if (selectedSplashScreen == SPLASH_BIIES) {
     // Biies uses uint16_t RGB565 format, can use pushImage directly
     display.pushImage(0, 0, 480, 320, epd_bitmap_biies);
+  } else if (selectedSplashScreen == SPLASH_ZYCAS) {
+    // Zycas uses uint16_t RGB565 format, can use pushImage directly
+    display.pushImage(0, 0, 480, 320, epd_bitmap_zycas);
+  } else if (selectedSplashScreen == SPLASH_SPINE) {
+    // Spine uses uint16_t RGB565 format, can use pushImage directly
+    display.pushImage(0, 0, 480, 320, epd_bitmap_spine);
   } else {
     // Default fallback to Mazduino
     display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
@@ -58,7 +66,7 @@ int getSplashScreenSelection() {
 }
 
 void setSplashScreenSelection(int selection) {
-  if (selection == SPLASH_MAZDUINO || selection == SPLASH_MERCY || selection == SPLASH_HEDON || selection == SPLASH_BIIES) {
+  if (selection == SPLASH_MAZDUINO || selection == SPLASH_MERCY || selection == SPLASH_HEDON || selection == SPLASH_BIIES || selection == SPLASH_ZYCAS || selection == SPLASH_SPINE) {
     selectedSplashScreen = selection;
     EEPROM.write(10, selection);
     EEPROM.commit();

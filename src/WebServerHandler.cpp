@@ -3,6 +3,7 @@
 #include "DataTypes.h"
 #include "DisplayConfig.h"
 #include "SplashScreen.h"
+#include "BacklightControl.h"
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Update.h>
@@ -16,6 +17,9 @@
 
 // IP configuration - Simple approach, let ESP32 use default IP
 // Default AP IP is usually 192.168.4.1
+
+// Global variable for OTA update size  
+static size_t otaUpdateSize = 0;
 
 // OTA upload page HTML
 const char *uploadPage PROGMEM = R"rawliteral(
@@ -150,6 +154,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
       .config-controls .btn {
         flex: 1;
       }
+      .splash-logo { display:none;}
       h3 {
         color: #4CAF50;
         font-size: 16px;
@@ -233,6 +238,12 @@ const char *uploadPage PROGMEM = R"rawliteral(
               'Simulator: Mode ' + data.simulatorMode + '<br>' +
               'Uptime: ' + uptime + ' seconds<br>' +
               'Free Memory: ' + Math.round(data.freeHeap / 1024) + 'KB';
+            
+            // Show/hide CAN configuration based on communication mode
+            const canConfig = document.getElementById('canConfiguration');
+            if (canConfig) {
+              canConfig.style.display = data.commMode === 'CAN Bus' ? 'block' : 'none';
+            }
           })
           .catch(error => {
             console.error('Error fetching status:', error);
@@ -354,6 +365,8 @@ const char *uploadPage PROGMEM = R"rawliteral(
             case '1': splashName = 'Mercedes'; break;
             case '2': splashName = 'Hedon'; break;
             case '3': splashName = 'Biies'; break;
+            case '4': splashName = 'Zycas'; break;
+            case '5': splashName = 'Spine'; break;
             default: splashName = 'Unknown'; break;
           }
           alert('Splash screen updated: ' + splashName);
@@ -369,6 +382,32 @@ const char *uploadPage PROGMEM = R"rawliteral(
           });
       }
       
+      function updateBrightness(value) {
+        fetch('/brightness', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: 'brightness=' + value
+        })
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('brightnessValue').textContent = value;
+          if (data !== 'OK') {
+            alert('Error setting brightness: ' + data);
+          }
+        });
+      }
+      
+      function loadBrightness() {
+        fetch('/brightness')
+          .then(response => response.text())
+          .then(brightness => {
+            const slider = document.getElementById('brightnessSlider');
+            const value = document.getElementById('brightnessValue');
+            if (slider) slider.value = brightness;
+            if (value) value.textContent = brightness;
+          });
+      }
+      
       const startTime = Date.now()/1000;
       setInterval(refreshStatus, 1000);
       
@@ -377,6 +416,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
         loadDisplayConfig();
         loadCanSpeed();
         loadSplashScreen();
+        loadBrightness();
       };
     </script>
   </head>
@@ -391,6 +431,20 @@ const char *uploadPage PROGMEM = R"rawliteral(
           WiFi: Active<br>
           Communication: <span id="commStatus" style="color: #4CAF50; font-weight: bold;">CAN Bus Mode</span><br>
           Ready for configuration
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2>Brightness Control</h2>
+        <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
+          <label for="brightnessSlider" style="font-weight: bold; color: #4CAF50; min-width: 120px;">Brightness:</label>
+          <input type="range" id="brightnessSlider" min="0" max="255" value="100" 
+                 style="flex: 1; height: 6px; background: #444; outline: none; border-radius: 3px;"
+                 oninput="updateBrightness(this.value)" onchange="updateBrightness(this.value)">
+          <span id="brightnessValue" style="min-width: 40px; font-weight: bold; color: #4CAF50;">100</span>
+        </div>
+        <div style="font-size: 12px; color: #999; margin-top: 5px;">
+          Adjust display backlight brightness (0 = off, 255 = maximum)
         </div>
       </div>
       
@@ -558,10 +612,10 @@ const char *uploadPage PROGMEM = R"rawliteral(
         
         <p style="font-size: 14px; opacity: 0.8;">
           <strong>Display Configuration:</strong><br>
-          • <strong>Data Panels:</strong> Choose which engine data to display in each position<br>
-          • <strong>Status Indicators:</strong> Select which status indicators to show at bottom<br>
-          • <strong>Layout:</strong> 8 data panels (4 top, 4 bottom) + indicator bar<br>
-          • <strong>Data Types:</strong> Float (AFR, Voltage), Integer (TPS, MAP, etc.), Boolean (indicators)<br>
+          <ul><li><strong>Data Panels:</strong> Choose which engine data to display in each position</li>
+          <li><strong>Status Indicators:</strong> Select which status indicators to show at bottom</li>
+          <li><strong>Layout:</strong> 8 data panels (4 top, 4 bottom) + indicator bar</li>
+          <li><strong>Data Types:</strong> Float (AFR, Voltage), Integer (TPS, MAP, etc.), Boolean (indicators)</li></ul>
           <br>
           Configuration is saved to device memory and persists across restarts.
         </p>
@@ -595,13 +649,14 @@ const char *uploadPage PROGMEM = R"rawliteral(
         </div>
         <p style="font-size: 14px; opacity: 0.8;">
           <strong>Debug Mode:</strong> Shows CPU usage, FPS, and memory info at top center of display<br>
-          <strong>Simulator Modes:</strong><br>
-          • <strong>OFF:</strong> Use real ECU data<br>
-          • <strong>RPM Sweep:</strong> RPM increases from 0 to 8000 continuously<br>
-          • <strong>Engine Idle:</strong> Simulates engine at idle (800 RPM)<br>
-          • <strong>Driving:</strong> Simulates normal driving conditions (2000-4000 RPM)<br>
-          • <strong>Redline:</strong> Simulates high RPM operation (6000+ RPM)<br>
-          <br>
+          <strong>Simulator Modes:</strong>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>OFF:</strong> Use real ECU data</li>
+            <li><strong>RPM Sweep:</strong> RPM increases from 0 to 8000 continuously</li>
+            <li><strong>Engine Idle:</strong> Simulates engine at idle (800 RPM)</li>
+            <li><strong>Driving:</strong> Simulates normal driving conditions (2000-4000 RPM)</li>
+            <li><strong>Redline:</strong> Simulates high RPM operation (6000+ RPM)</li>
+          </ul>
           When simulator is active, "SIM" indicator appears on display. Use these modes to test the display without connecting to real ECU.
         </p>
       </div>
@@ -616,28 +671,97 @@ const char *uploadPage PROGMEM = R"rawliteral(
             Serial Mode
           </button>
         </div>
-        <p style="font-size: 14px; opacity: 0.8;">
-          <strong>Communication Mode Explanation:</strong><br>
-          • <strong>CAN Bus Mode:</strong> Receives data via CAN bus (standard automotive protocol)<br>
-          • <strong>Serial Mode:</strong> Receives data via serial communication (UART)<br>
-          <br>
-          The active mode is shown on the display:<br>
-          • <strong>"CAN"</strong> appears in green at top-left for CAN Bus mode<br>
-          • <strong>"SER"</strong> appears in orange at top-left for Serial mode<br>
-          <br>
+        
+        <!-- CAN Configuration - only shown in CAN mode -->
+        <div id="canConfiguration" style="display: none; margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
+          <h3>CAN Bus Configuration</h3>
+          <div class="config-item">
+            <label for="canSpeedSelect">CAN Speed:</label>
+            <select id="canSpeedSelect" onchange="updateCanSpeed()">
+              <option value="500000">500 Kbps</option>
+              <option value="1000000">1 Mbps</option>
+            </select>
+          </div>
+          <p style="font-size: 12px; opacity: 0.8; margin-top: 10px;">
+            Select CAN speed according to your hardware/ECU requirements.<br>
+            Changes will be saved and applied on next restart.
+          </p>
+        </div>
+        
+        <p style="font-size: 14px; opacity: 0.8; margin-top: 15px;">
+          <strong>Communication Mode Explanation:</strong>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>CAN Bus Mode:</strong> Receives data via CAN bus (standard automotive protocol)</li>
+            <li><strong>Serial Mode:</strong> Receives data via serial communication (UART)</li>
+          </ul>
+          The active mode is shown on the display:
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>"CAN"</strong> appears in green at top-left for CAN Bus mode</li>
+            <li><strong>"SER"</strong> appears in orange at top-left for Serial mode</li>
+          </ul>
           <strong>WARNING:</strong> Changing communication mode will restart the device.
         </p>
       </div>
       
       <div class="section">
         <h2>Firmware Update</h2>
-        <form method="POST" action="/update" enctype="multipart/form-data">
-          <input type="file" name="firmware" class="file-input" accept=".bin" required>
-          <button type="submit" class="btn danger">Upload Firmware</button>
+        <form method="POST" action="/update" enctype="multipart/form-data" id="uploadForm">
+          <input type="file" name="firmware" class="file-input" accept=".bin" required id="firmwareFile">
+          <button type="submit" class="btn danger" id="uploadBtn">Upload Firmware</button>
         </form>
+        <div id="uploadProgress" style="display:none; margin-top:10px;">
+          <p>Uploading firmware, please wait...</p>
+          <div style="background:#444;height:20px;border-radius:10px;overflow:hidden;">
+            <div id="progressBar" style="background:#4CAF50;height:100%;width:0%;transition:width 0.3s;"></div>
+          </div>
+        </div>
         <p style="font-size: 14px; opacity: 0.8;">
-          WARNING: Only upload official MAZDUINO firmware files
+          <strong>WARNING:</strong> Only upload official MAZDUINO firmware files (.bin format).<br>
+          <strong>DO NOT</strong> power off device during upload!
         </p>
+        <script>
+          document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            const fileInput = document.getElementById('firmwareFile');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressDiv = document.getElementById('uploadProgress');
+            
+            if (fileInput.files.length === 0) {
+              alert('Please select a firmware file first!');
+              e.preventDefault();
+              return;
+            }
+            
+            const file = fileInput.files[0];
+            if (!file.name.toLowerCase().endsWith('.bin')) {
+              alert('File must be in .bin format!');
+              e.preventDefault();
+              return;
+            }
+            
+            if (file.size < 100000) {  // Less than 100KB seems too small
+              if (!confirm('Firmware file seems too small (' + Math.round(file.size/1024) + 'KB). Continue anyway?')) {
+                e.preventDefault();
+                return;
+              }
+            }
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            progressDiv.style.display = 'block';
+            
+            // Simulate progress (since we can't get real progress easily)
+            let progress = 0;
+            const progressBar = document.getElementById('progressBar');
+            const interval = setInterval(() => {
+              progress += Math.random() * 15;
+              if (progress > 90) progress = 90;
+              progressBar.style.width = progress + '%';
+            }, 500);
+            
+            // Stop simulation after form submission
+            setTimeout(() => clearInterval(interval), 1000);
+          });
+        </script>
       </div>
       
       <div class="section">
@@ -650,9 +774,16 @@ const char *uploadPage PROGMEM = R"rawliteral(
         <p style="font-size: 14px; opacity: 0.8;">
           WiFi will automatically turn off after 1 minute of inactivity to save power.
         </p>
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
+          <h3 style="color: #4CAF50; font-size: 14px; margin-bottom: 10px;">Follow Us</h3>
+          <p style="font-size: 14px;">
+            <strong>TikTok:</strong> <a href="https://www.tiktok.com/@mazduino" target="_blank" style="color: #4CAF50; text-decoration: none;">@mazduino</a><br>
+            <strong>Website:</strong> <a href="https://www.mazduino.com" target="_blank" style="color: #4CAF50; text-decoration: none;">www.mazduino.com</a>
+          </p>
+        </div>
       </div>
       
-      <div class="section">
+      <div class="section splash-logo">
         <h2>Splash Screen Configuration</h2>
         <div class="config-item">
           <label for="splashSelect">Splash Screen:</label>
@@ -661,25 +792,12 @@ const char *uploadPage PROGMEM = R"rawliteral(
             <option value="1">Mercedes</option>
             <option value="2">Hedon</option>
             <option value="3">Biies</option>
+            <option value="4">Zycas</option>
+            <option value="5">Spine</option>
           </select>
         </div>
         <p style="font-size: 14px; opacity: 0.8;">
           Pilih gambar yang akan ditampilkan saat startup.<br>
-          Perubahan akan disimpan dan digunakan saat restart berikutnya.
-        </p>
-      </div>
-      
-      <div class="section">
-        <h2>CAN Bus Configuration</h2>
-        <div class="config-item">
-          <label for="canSpeedSelect">CAN Speed:</label>
-          <select id="canSpeedSelect" onchange="updateCanSpeed()">
-            <option value="500000">500 Kbps</option>
-            <option value="1000000">1 Mbps</option>
-          </select>
-        </div>
-        <p style="font-size: 14px; opacity: 0.8;">
-          Pilih kecepatan CAN sesuai kebutuhan hardware/ECU Anda.<br>
           Perubahan akan disimpan dan digunakan saat restart berikutnya.
         </p>
       </div>
@@ -709,9 +827,36 @@ void startWebServer()
   server.on(
       "/update", HTTP_POST, [&]()
       {
-      server.send(200, "text/plain", (Update.hasError()) ? "Gagal update!" : "Update berhasil! MAZDUINO Display akan restart.");
-      delay(1000);
-      ESP.restart(); },
+        String message;
+        if (Update.hasError()) {
+          message = "FAILED! Error: " + String(Update.getError());
+          Serial.println("OTA Update failed with error: " + String(Update.getError()));
+        } else {
+          message = "Update successful! MAZDUINO Display will restart in 3 seconds...";
+          Serial.println("OTA Update successful! Restarting...");
+        }
+        
+        String response = "<!DOCTYPE html><html><head><title>Update Status</title>"
+          "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+          "<style>body{font-family:Arial;background:#1a1a1a;color:#fff;text-align:center;padding:50px;}"
+          ".success{color:#4CAF50;}.error{color:#f44336;}</style></head><body>"
+          "<h1>Firmware Update</h1>"
+          "<p class=\"" + String(Update.hasError() ? "error" : "success") + "\">" + message + "</p>";
+        
+        if (Update.hasError()) {
+          response += "<p><a href=\"/\" style=\"color:#4CAF50;\">Back to Dashboard</a></p>";
+        } else {
+          response += "<p>Please wait, device is restarting...</p><script>setTimeout(()=>{window.location.href='/';},5000);</script>";
+        }
+        
+        response += "</body></html>";
+        server.send(200, "text/html", response);
+          
+        if (!Update.hasError()) {
+          delay(1000);
+          ESP.restart();
+        }
+      },
       handleUpdate);
   server.on("/toggle", HTTP_POST, handleToggle);
   server.on("/setMode", HTTP_POST, [&]()
@@ -891,10 +1036,10 @@ void startWebServer()
   server.on("/splash", HTTP_POST, [&]() {
     if (server.hasArg("splash")) {
       int splash = server.arg("splash").toInt();
-      if (splash >= 0 && splash <= 3) { // SPLASH_MAZDUINO, SPLASH_MERCY, SPLASH_HEDON, SPLASH_BIIES
+      if (splash >= 0 && splash <= 5) { // SPLASH_MAZDUINO, SPLASH_MERCY, SPLASH_HEDON, SPLASH_BIIES, SPLASH_ZYCAS, SPLASH_SPINE
         setSplashScreenSelection(splash);
         server.send(200, "text/plain", "OK");
-        const char* splashNames[] = {"Mazduino", "Mercedes", "Hedon", "Biies"};
+        const char* splashNames[] = {"Mazduino", "Mercedes", "Hedon", "Biies", "Zycas", "Spine"};
         Serial.printf("Splash screen set to %s via webserver\n", splashNames[splash]);
       } else {
         server.send(400, "text/plain", "Invalid splash selection");
@@ -903,10 +1048,33 @@ void startWebServer()
       server.send(400, "text/plain", "Missing splash param");
     }
   });
+
+  // Brightness control handlers
+  server.on("/brightness", HTTP_GET, [&]() {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%d", backlightBrightness);
+    server.send(200, "text/plain", buf);
+  });
+  
+  server.on("/brightness", HTTP_POST, [&]() {
+    if (server.hasArg("brightness")) {
+      int brightness = server.arg("brightness").toInt();
+      if (brightness >= 0 && brightness <= 255) {
+        backlightBrightness = brightness;
+        setBacklightBrightness(backlightBrightness);
+        server.send(200, "text/plain", "OK");
+        Serial.printf("Brightness set to %d via webserver\n", brightness);
+      } else {
+        server.send(400, "text/plain", "Invalid brightness value (0-255)");
+      }
+    } else {
+      server.send(400, "text/plain", "Missing brightness param");
+    }
+  });
   
   server.begin();
   wifiActive = true;
-  Serial.println("Web server aktif.");
+  Serial.println("Web server active.");
   Serial.printf("WiFi AP: %s\n", ssid);
   
   Serial.printf("AP IP Address: %s\n", WiFi.softAPIP().toString().c_str());
@@ -948,29 +1116,57 @@ void handleUpdate()
 
   if (upload.status == UPLOAD_FILE_START)
   {
-    Serial.printf("Memulai update: %s\n", upload.filename.c_str());
-    if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+    Serial.printf("Starting update: %s\n", upload.filename.c_str());
+    Serial.printf("File size: %u bytes\n", upload.totalSize);
+    
+    // Calculate available space for OTA update
+    otaUpdateSize = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+    
+    if (!Update.begin(otaUpdateSize))
     {
+      Serial.println("Update.begin() failed!");
       Update.printError(Serial);
+      return;
     }
+    Serial.printf("Update started with size: %u bytes\n", otaUpdateSize);
   }
   else if (upload.status == UPLOAD_FILE_WRITE)
   {
-    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+    size_t written = Update.write(upload.buf, upload.currentSize);
+    if (written != upload.currentSize)
     {
+      Serial.printf("Update.write() failed! Written: %u, Expected: %u\n", written, upload.currentSize);
       Update.printError(Serial);
+      return;
+    }
+    
+    // Show progress every 64KB
+    static size_t lastProgress = 0;
+    if (upload.totalSize > 0 && (upload.totalSize - lastProgress) >= 65536) {
+      Serial.printf("Update progress: %u/%u bytes (%.1f%%)\n", 
+                   upload.totalSize, otaUpdateSize, 
+                   (float)upload.totalSize / otaUpdateSize * 100.0);
+      lastProgress = upload.totalSize;
     }
   }
   else if (upload.status == UPLOAD_FILE_END)
   {
+    Serial.printf("Update completed. Total: %u bytes\n", upload.totalSize);
+    
     if (Update.end(true))
     {
-      // Update successful
+      Serial.println("Update successful! Device will restart...");
     }
     else
     {
+      Serial.println("Update failed!");
       Update.printError(Serial);
     }
+  }
+  else if (upload.status == UPLOAD_FILE_ABORTED)
+  {
+    Serial.println("Update aborted!");
+    Update.end();
   }
 }
 

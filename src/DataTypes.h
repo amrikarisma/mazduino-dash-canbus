@@ -22,6 +22,7 @@ extern uint32_t lastPrintTime;
 extern uint32_t startupTime;
 extern uint32_t lazyUpdateTime;
 extern uint16_t spr_width;
+extern uint8_t backlightBrightness;
 
 // Communication variables
 extern int commMode;

@@ -45,6 +45,8 @@ extern const char *password;
 #define SPLASH_MERCY 1
 #define SPLASH_HEDON 2
 #define SPLASH_BIIES 3
+#define SPLASH_ZYCAS 4
+#define SPLASH_SPINE 5
 #define DEFAULT_SPLASH_SCREEN SPLASH_MAZDUINO
 
 #endif // CONFIG_H
