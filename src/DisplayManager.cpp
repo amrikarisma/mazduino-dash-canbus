@@ -7,6 +7,9 @@
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 #include "TouchHandler.h"
+#include "MainScreen.h"
+#include "ConfigScreen.h"
+#include "BenchScreen.h"
 #include <EEPROM.h>
 #include <WiFi.h>
 #if ENABLE_SIMULATOR
@@ -48,127 +51,102 @@ void drawModularDataPanel(const DisplayPanel &panel, bool setup) {
   int panelPositions[8][2] = {
     {0, 20},   // Position 0: Left-Top (AFR) - Y=160 to Y=240
     {0, 110},   // Position 1: Left-Middle (TPS) - Y=245 to Y=325
-    {0, 200},   // Position 2: Left-Bottom (IAT) - Y=280 to Y=360, will be clipped but user requested
-    {390, 20}, // Position 3: Right-Top (MAP) - Y=160 to Y=240
-    {390, 110}, // Position 4: Right-Middle (ADV) - Y=245 to Y=325
-    {390, 200}, // Position 5: Right-Bottom (FP) - Y=280 to Y=360, will be clipped but user requested
-    {130, 200}, // Position 6: Center-Left (Coolant) - moved to center to avoid overlap
-    {250, 200}  // Position 7: Center-Right (Voltage) - moved to center to avoid overlap
+    {0, 200},   // Position 2: Left-Bottom (IAT) - Y=245 to Y=325
+    {120, 20},   // Position 3: Center-Top (MAP) - Y=160 to Y=240
+    {120, 110},   // Position 4: Center-Middle (ECT) - Y=245 to Y=325
+    {120, 200},  // Position 5: Center-Bottom (Baro) - Y=245 to Y=325
+    {390, 20},  // Position 6: Right-Top (AFR2) - Y=160 to Y=240
+    {390, 110}   // Position 7: Right-Middle (Unused) - Y=245 to Y=325
   };
-  
+
   if (panel.position >= 8) return;
-  
+
   int x = panelPositions[panel.position][0];
   int y = panelPositions[panel.position][1];
-  
-  // Get current value
-  float currentValue = getDataValue(panel.dataSource);
-  
-  // Get color based on data source and value
-  uint16_t color = getDataSourceColor(panel.dataSource, currentValue);
-  
-  // Use existing drawDataBox function with enhanced parameters
-  static float lastValues[8] = {-999, -999, -999, -999, -999, -999, -999, -999};
-  
-  if (setup || lastValues[panel.position] != currentValue) {
-    drawDataBox(x, y, panel.label, currentValue, color, lastValues[panel.position], panel.decimals, setup);
-    lastValues[panel.position] = currentValue;
-  }
+
+  float value = getDataValue(panel.dataSource);
+  uint16_t valueColor = getDataSourceColor(panel.dataSource, value);
+  drawDataBox(x, y, panel.label, value, panel.color, 0, panel.decimals, setup);
 }
 
-void drawConfigurableIndicators() {
-  // Draw indicators based on configuration
-  // Position indicators in the middle area between left/right columns
-  // IAT and FP panels are at Y=280-360, center panels at Y=285-365
-  // Place indicators between the main columns at Y=330
-  int indicatorX = 5;  // Positioned between left and right columns
-  int indicatorY = 290;  // Positioned in the middle area
-  int indicatorWidth = 60; // Made slightly smaller to fit better
+void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const float valueToCompare, const int decimal, bool setup) {
+  // Create sprite for data box
+  spr.createSprite(100, 80);
   
-  // Pack enabled indicators without gaps
-  int currentPosition = 0;
-  for (int i = 0; i < currentDisplayConfig.activeIndicatorCount; i++) {
-    IndicatorConfig &indicator = currentDisplayConfig.indicators[i];
-    if (indicator.enabled && indicator.position < 8) {
-      bool state = getIndicatorValue(indicator.indicator);
-      // Use currentPosition instead of indicator.position to pack without gaps
-      drawSmallButton(indicatorX + (indicatorWidth * currentPosition), indicatorY, indicator.label, state);
-      currentPosition++; // Increment position for next enabled indicator
+  // Calculate colors
+  uint16_t valueColor = TFT_WHITE;
+  uint16_t bgColor = TFT_BLACK;
+  
+  // Warning color logic
+  if (valueToCompare > 0 && value > valueToCompare) {
+    valueColor = TFT_RED;
+  } else if (value < 0) {
+    valueColor = TFT_YELLOW;
+  }
+  
+  // Clear sprite
+  spr.fillSprite(bgColor);
+  
+  // Draw border
+  spr.drawRect(0, 0, 100, 80, TFT_DARKGREY);
+  
+  // Draw label
+  spr.loadFont(AA_FONT_SMALL);
+  spr.setTextColor(labelColor, bgColor);
+  spr.setTextDatum(TC_DATUM);
+  spr.drawString(label, 50, 5);
+  
+  // Draw value
+  spr.loadFont(AA_FONT_LARGE);
+  spr.setTextColor(valueColor, bgColor);
+  spr.setTextDatum(MC_DATUM);
+  
+  if (decimal == 0) {
+    spr.drawNumber((int)value, 50, 45);
+  } else {
+    spr.drawFloat(value, decimal, 50, 45);
+  }
+  
+  // Push sprite to display
+  spr.pushSprite(x, y);
+  spr.deleteSprite();
+}
+
+void drawData() {
+  static uint8_t lastScreen = 255; // Initialize to invalid screen
+  bool screenChanged = (currentScreen != lastScreen);
+  
+  if (screenChanged) {
+    // Force full screen redraw when screen changes
+    display.fillScreen(TFT_BLACK);
+    lastScreen = currentScreen;
+    
+    // Initialize screens if not already done
+    static bool screensInitialized = false;
+    if (!screensInitialized) {
+      mainScreen.begin();
+      configScreen.begin();
+      benchScreen.begin();
+      screensInitialized = true;
     }
   }
-}
-
-// New function to replace itemDraw with configurable panels
-void drawConfigurableData(bool setup) {
-  // Draw RPM and VSS with reduced frequency update (only when changed or setup)
-  static uint32_t lastRpmUpdate = 0;
-  static unsigned int lastVss = 999; // Different initial value to force first update
-  static unsigned int lastRpm = 999; // Track last RPM for comparison
   
-  // Reset static variables on force redraw (screen change)
-  if (setup) {
-    lastRpm = 999; // Force redraw by making values different
-    lastVss = 999;
-    lastRpmUpdate = 0;
-  }
-  
-  if (lastRpm != rpm || lastVss != vss || setup || (millis() - lastRpmUpdate > 100)) {
-    drawRPMBarBlocks(rpm); // Use default maxRPM from config
-    
-    // Draw RPM value with background and border
-    spr.loadFont(AA_FONT_SMALL);
-    spr.createSprite(90, 30);
-    spr_width = spr.textWidth("8888");
-    spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
-    spr.setTextDatum(BR_DATUM);
-    spr.drawString("RPM", 80, 2); // Label at top
-    spr.setTextDatum(BR_DATUM);
-    spr.loadFont(AA_FONT_SMALL); // Use smaller font for RPM value to match existing pattern
-    spr.drawNumber(rpm, 80, 30); // Value at bottom with smaller font
-    spr.pushSprite(275, 15);
-    spr.deleteSprite();
-    
-    // Draw VSS value with background and border
-    spr.createSprite(120, 50);
-    spr_width = spr.textWidth("888");
-    spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
-    
-    // Draw the numeric value with large font
-    spr.setTextDatum(BR_DATUM);
-    spr.loadFont(AA_FONT_LARGE);
-    spr.drawNumber(vss, 60, 46); // Value positioned to left
-    
-    // Draw "kph" unit with smaller font
-    spr.setTextDatum(BL_DATUM);
-    spr.loadFont(AA_FONT_SMALL);
-    spr.drawString("kph", 62, 42); // Unit positioned to right of value
-    
-    spr.pushSprite(250, 135);
-    spr.deleteSprite();
-    
-    lastRpm = rpm;
-    lastVss = vss;
-    lastRpmUpdate = millis();
-  }
-  
-  // Draw configurable panels with reduced frequency
-  static uint32_t lastPanelUpdate = 0;
-  if (setup) {
-    lastPanelUpdate = 0; // Force panel redraw
-  }
-  if (setup || (millis() - lastPanelUpdate > 50)) { // Update panels every 50ms max
-    drawConfigurablePanels(setup);
-    lastPanelUpdate = millis();
-  }
-  
-  // Draw configurable indicators with reduced frequency
-  static uint32_t lastIndicatorUpdate = 0;
-  if (setup) {
-    lastIndicatorUpdate = 0; // Force indicator redraw
-  }
-  if (setup || (millis() - lastIndicatorUpdate > 100)) { // Update indicators every 100ms max
-    drawConfigurableIndicators();
-    lastIndicatorUpdate = millis();
+  // Draw different screens based on currentScreen using modular classes
+  switch (currentScreen) {
+    case SCREEN_MAIN:
+      mainScreen.draw(screenChanged);
+      break;
+    case SCREEN_CONFIG:
+      configScreen.draw(screenChanged);
+      break;
+    case SCREEN_BENCH:
+      benchScreen.draw(screenChanged);
+      break;
+    default:
+      // Fallback to main screen
+      currentScreen = SCREEN_MAIN;
+      mainScreen.draw(true);
+      break;
   }
 }
 
@@ -178,306 +156,30 @@ void startUpDisplay() {
   spr.setColorDepth(16);
   display.setTextColor(TFT_WHITE, TFT_BLACK);
   
-  // Use configurable display system
-  drawConfigurableData(true);
-  
-  // Animation with both RPM and VSS values
-  spr.loadFont(AA_FONT_SMALL);
-  for (int i = DEFAULT_MAX_RPM; i >= 0; i -= 250) {
-    drawRPMBarBlocks(i); // Use default maxRPM from config
-  }
+  // Initialize main screen and draw initial data
+  mainScreen.begin();
+  mainScreen.draw(true);
 }
 
-void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const float valueToCompare, const int decimal, bool setup) {
-  const int BOX_WIDTH = 80;
-  const int BOX_HEIGHT = 80;
-  const int LABEL_HEIGHT = BOX_HEIGHT / 2;
-
-  if (setup) {
-    // Clear the entire data box area first only during setup
-    display.fillRect(x, y, BOX_WIDTH, BOX_HEIGHT, TFT_BLACK);
-    
-    // Draw border around the entire panel
-    display.drawRoundRect(x, y, BOX_WIDTH, BOX_HEIGHT, 5, TFT_DARKGREY);      // Outer border
-    display.drawRoundRect(x + 1, y + 1, BOX_WIDTH - 2, BOX_HEIGHT - 2, 4, labelColor); // Inner border with label color
-    
-    spr.loadFont(AA_FONT_SMALL);
-    spr.createSprite(BOX_WIDTH, LABEL_HEIGHT);
-    spr.fillSprite(TFT_BLACK);  // Clear sprite background
-    spr.setTextColor(labelColor, TFT_BLACK, true);
-    spr.setTextDatum(TC_DATUM);
-    spr.drawString(label, 40, 5);
-    if (label == "AFR") {
-      spr.pushSprite(x - 10, y);
-    } else {
-      spr.pushSprite(x, y);
-    }
-    spr.deleteSprite();
-  }
-  
-  if (setup || valueToCompare != value) {
-    spr.loadFont(AA_FONT_LARGE);
-    spr.createSprite(BOX_WIDTH, LABEL_HEIGHT);
-    spr.fillSprite(TFT_BLACK);  // Clear sprite background
-    spr.setTextDatum(TC_DATUM);
-    spr_width = spr.textWidth("333");
-    spr.setTextColor(labelColor, TFT_BLACK, true);
-    if (decimal > 0) {
-      spr.drawFloat(value, decimal, 40, 5);
-    } else {
-      spr.drawNumber(value, 40, 5);
-    }
-    spr.pushSprite(x, y + LABEL_HEIGHT - 15);
-    spr.deleteSprite();
-  }
-}
-
-void drawData() {
-  // Draw different screens based on currentScreen
-  switch (currentScreen) {
-    case SCREEN_MAIN:
-      drawMainScreen();
-      break;
-    case SCREEN_CONFIG:
-      drawConfigScreen();
-      break;
-    case SCREEN_BENCH:
-      drawBenchScreen();
-      break;
-    default:
-      drawMainScreen(); // Fallback to main screen
-      break;
-  }
-}
-
-void drawMainScreen(bool forceRedraw) {
-  // Use configurable display system with performance optimizations
-  drawConfigurableData(forceRedraw);
-  
-#if ENABLE_SIMULATOR
-  // Draw simulator indicator if simulator is active (with reduced update frequency)
-  static uint8_t lastSimMode = SIMULATOR_MODE_OFF;
-  static uint32_t lastSimUpdate = 0;
-  uint8_t currentSimMode = getSimulatorMode();
-  
-  // Force redraw or update if simulator mode has changed or every 500ms
-  if (forceRedraw || currentSimMode != lastSimMode || (millis() - lastSimUpdate > 500)) {
-    if (currentSimMode != SIMULATOR_MODE_OFF) {
-      // Clear the SIM area first
-      display.fillRect(display.width() - 30, 5, 25, 15, TFT_BLACK);
+void drawConfigurableIndicators() {
+  // Draw indicators based on current configuration
+  for (int i = 0; i < currentDisplayConfig.activeIndicatorCount; i++) {
+    IndicatorConfig &indicator = currentDisplayConfig.indicators[i];
+    if (indicator.enabled) {
+      bool isActive = getIndicatorValue(indicator.indicator);
       
-      // Draw SIM indicator
+      // Draw indicator at bottom of screen
+      int x = 10 + (i * 60);
+      int y = 290;
+      
+      uint16_t color = isActive ? TFT_GREEN : TFT_DARKGREY;
+      display.fillRect(x, y, 50, 20, color);
+      display.drawRect(x, y, 50, 20, TFT_WHITE);
+      
       display.loadFont(AA_FONT_SMALL);
-      display.setTextColor(TFT_YELLOW, TFT_BLACK);
-      display.setTextDatum(TR_DATUM);
-      display.drawString("SIM", display.width() - 5, 5);
-    } else {
-      // Clear the SIM indicator when simulator is turned off
-      display.fillRect(display.width() - 30, 5, 25, 15, TFT_BLACK);
+      display.setTextColor(TFT_BLACK, color);
+      display.setTextDatum(MC_DATUM);
+      display.drawString(indicator.label, x + 25, y + 10);
     }
-    
-    lastSimMode = currentSimMode;
-    lastSimUpdate = millis();
-  }
-#endif
-
-  // Draw communication mode indicator (top left) with reduced update frequency
-  static bool lastCommMode = true;  // Track changes
-  static String lastCommText = "";
-  static uint32_t lastCommUpdate = 0;
-  
-  String currentCommText = isCANMode ? "CAN" : "SER";
-  
-  // Force redraw or update if communication mode has changed or every 1000ms
-  if (forceRedraw || isCANMode != lastCommMode || currentCommText != lastCommText || (millis() - lastCommUpdate > 1000)) {
-    // Clear the comm mode area first
-    display.fillRect(5, 5, 40, 15, TFT_BLACK);
-    
-    // Draw new communication mode
-    display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(isCANMode ? TFT_GREEN : TFT_ORANGE, TFT_BLACK);
-    display.setTextDatum(TL_DATUM);
-    display.drawString(currentCommText, 5, 5);
-    
-    lastCommMode = isCANMode;
-    lastCommText = currentCommText;
-    lastCommUpdate = millis();
-  }
-
-#if ENABLE_DEBUG_MODE
-  static bool lastDebugMode = false;
-  static String lastDebugInfo = "";
-  
-  if (debugMode) {
-    // Create debug info string - show only essential info in one line
-    String debugInfo = "CPU:" + String(cpuUsage, 1) + "% FPS:" + String(fps, 1) + " Heap:" + String(ESP.getFreeHeap()/1024) + "K";
-    
-    if (forceRedraw || debugInfo != lastDebugInfo || !lastDebugMode) {
-      int centerX = display.width() / 2;
-      
-      // Clear the debug area first to prevent font overlap
-      display.fillRect(centerX - 120, 5, 240, 20, TFT_BLACK);
-      
-      // Draw debug info
-      display.loadFont(AA_FONT_SMALL);
-      display.setTextColor(TFT_CYAN, TFT_BLACK);
-      display.setTextDatum(TC_DATUM);
-      display.drawString(debugInfo, centerX, 5);
-      
-      lastDebugInfo = debugInfo;
-    }
-    
-    lastDebugMode = true;
-  } else {
-    // Clear debug area when debug mode is turned off
-    if (lastDebugMode || forceRedraw) {
-      // Clear the top center area where debug info was displayed
-      display.fillRect(0, 5, display.width(), 20, TFT_BLACK);
-      lastDebugMode = false;
-      lastDebugInfo = "";
-    }
-  }
-#endif
-
-  // Draw screen indicator (bottom right) - always draw on force redraw
-  static bool screenIndicatorDrawn = false;
-  if (forceRedraw || !screenIndicatorDrawn) {
-    display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(TFT_WHITE, TFT_BLACK);
-    display.setTextDatum(BR_DATUM);
-    display.drawString("MAIN", display.width() - 5, display.height() - 5);
-    screenIndicatorDrawn = true;
-  }
-}
-
-void drawConfigScreen() {
-  static bool screenInitialized = false;
-  
-  if (!screenInitialized) {
-    display.fillScreen(TFT_BLACK);
-    screenInitialized = true;
-  }
-  
-  // Configuration Screen Header
-  display.loadFont(AA_FONT_LARGE);
-  display.setTextColor(TFT_CYAN, TFT_BLACK);
-  display.setTextDatum(TC_DATUM);
-  display.drawString("CONFIGURATION", display.width()/2, 20);
-  
-  // Configuration options
-  display.loadFont(AA_FONT_SMALL);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.setTextDatum(TL_DATUM);
-  
-  int yPos = 70;
-  display.drawString("WiFi Settings", 30, yPos);
-  yPos += 30;
-  display.drawString("Display Settings", 30, yPos);
-  yPos += 30;
-  display.drawString("CAN Settings", 30, yPos);
-  yPos += 30;
-  display.drawString("System Settings", 30, yPos);
-  yPos += 30;
-  display.drawString("Calibration", 30, yPos);
-  
-  // Current settings display
-  display.setTextColor(TFT_YELLOW, TFT_BLACK);
-  display.setTextDatum(TR_DATUM);
-  yPos = 70;
-  display.drawString(WiFi.status() == WL_CONNECTED ? "Connected" : "AP Mode", display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString(String(backlightBrightness) + "%", display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString(isCANMode ? "Enabled" : "Disabled", display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString("v" + String(version), display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString(touchHandler.isCalibrationValid() ? "OK" : "Needed", display.width() - 30, yPos);
-  
-  // Navigation hint
-  display.loadFont(AA_FONT_SMALL);
-  display.setTextColor(TFT_GREEN, TFT_BLACK);
-  display.setTextDatum(BC_DATUM);
-  display.drawString("< Swipe Right: Main", display.width()/2, display.height() - 30);
-  
-  // Screen indicator
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.setTextDatum(BR_DATUM);
-  display.drawString("CONFIG", display.width() - 5, display.height() - 5);
-  
-  // Reset initialization flag when leaving screen
-  static uint8_t lastScreen = SCREEN_CONFIG;
-  if (currentScreen != lastScreen) {
-    screenInitialized = false;
-    lastScreen = currentScreen;
-  }
-}
-
-void drawBenchScreen() {
-  static bool screenInitialized = false;
-  
-  if (!screenInitialized) {
-    display.fillScreen(TFT_BLACK);
-    screenInitialized = true;
-  }
-  
-  // Bench Test Screen Header
-  display.loadFont(AA_FONT_LARGE);
-  display.setTextColor(TFT_RED, TFT_BLACK);
-  display.setTextDatum(TC_DATUM);
-  display.drawString("BENCH TEST", display.width()/2, 20);
-  
-  // Test options
-  display.loadFont(AA_FONT_SMALL);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.setTextDatum(TL_DATUM);
-  
-  int yPos = 70;
-  display.drawString("Injector Test", 30, yPos);
-  yPos += 30;
-  display.drawString("Ignition Test", 30, yPos);
-  yPos += 30;
-  display.drawString("Fuel Pump Test", 30, yPos);
-  yPos += 30;
-  display.drawString("Idle Air Test", 30, yPos);
-  yPos += 30;
-  display.drawString("Fan Test", 30, yPos);
-  
-  // Test status
-  display.setTextColor(TFT_ORANGE, TFT_BLACK);
-  display.setTextDatum(TR_DATUM);
-  yPos = 70;
-  display.drawString("Ready", display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString("Ready", display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString("Ready", display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString("Ready", display.width() - 30, yPos);
-  yPos += 30;
-  display.drawString("Ready", display.width() - 30, yPos);
-  
-  // Warning message
-  display.setTextColor(TFT_YELLOW, TFT_BLACK);
-  display.setTextDatum(TC_DATUM);
-  display.drawString("WARNING: Engine must be OFF", display.width()/2, 220);
-  display.drawString("for all bench tests!", display.width()/2, 240);
-  
-  // Navigation hint
-  display.loadFont(AA_FONT_SMALL);
-  display.setTextColor(TFT_GREEN, TFT_BLACK);
-  display.setTextDatum(BC_DATUM);
-  display.drawString("< Swipe Left: Main", display.width()/2, display.height() - 30);
-  
-  // Screen indicator
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.setTextDatum(BR_DATUM);
-  display.drawString("BENCH", display.width() - 5, display.height() - 5);
-  
-  // Reset initialization flag when leaving screen
-  static uint8_t lastScreen = SCREEN_BENCH;
-  if (currentScreen != lastScreen) {
-    screenInitialized = false;
-    lastScreen = currentScreen;
   }
 }
