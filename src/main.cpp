@@ -221,12 +221,15 @@ void setup()
   display.fillScreen(TFT_BLACK);
   
   Serial.begin(UART_BAUD);
-  commMode = EEPROM.read(1);
+  commMode = EEPROM.read(EEPROM_COMM_MODE_ADDR);
+  
+  // Load Speeduino data mode from EEPROM
+  loadSpeeduinoDataModeFromEEPROM();
   
   // If EEPROM is uninitialized (0xFF), set default to CAN mode
   if (commMode == 255) {
     commMode = COMM_CAN;
-    EEPROM.write(1, commMode);
+    EEPROM.write(EEPROM_COMM_MODE_ADDR, commMode);
     EEPROM.commit();
   }
   

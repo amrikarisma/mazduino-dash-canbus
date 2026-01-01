@@ -23,6 +23,7 @@ extern uint32_t startupTime;
 extern uint32_t lazyUpdateTime;
 extern uint16_t spr_width;
 extern uint8_t backlightBrightness;
+extern uint8_t speeduinoDataMode; // 0 = Mode A (simple), 1 = Mode N (enhanced)
 
 // Communication variables
 extern int commMode;

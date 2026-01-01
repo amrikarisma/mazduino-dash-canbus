@@ -26,6 +26,7 @@ uint32_t startupTime;
 uint32_t lazyUpdateTime;
 uint16_t spr_width = 0;
 uint8_t backlightBrightness = BACKLIGHT_BRIGHTNESS;
+uint8_t speeduinoDataMode = DEFAULT_SPEEDUINO_MODE; // Default to enhanced mode
 
 // Communication variables
 int commMode = COMM_CAN;

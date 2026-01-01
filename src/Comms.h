@@ -11,4 +11,9 @@ bool getBit(uint16_t address, uint8_t bit);
 uint8_t getByte(uint16_t address);
 uint16_t getWord(uint16_t address);
 
+// Speeduino data mode functions
+void loadSpeeduinoDataModeFromEEPROM();
+void saveSpeeduinoDataModeToEEPROM();
+void setSpeeduinoDataMode(uint8_t mode);
+
 #endif //COMMS_H

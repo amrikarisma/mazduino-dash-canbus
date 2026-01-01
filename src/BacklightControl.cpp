@@ -4,9 +4,6 @@
 #include "Arduino.h"
 #include <EEPROM.h>
 
-// EEPROM address for brightness (using address 11 to avoid conflicts)
-#define BRIGHTNESS_EEPROM_ADDR 11
-
 void setupBacklight(bool isInitialStartup) {
   // Load brightness from EEPROM
   loadBrightnessFromEEPROM();
@@ -26,25 +23,25 @@ void setupBacklight(bool isInitialStartup) {
 
 void setBacklightBrightness(uint8_t brightness) {
   backlightBrightness = brightness;
-  ledcWrite(BACKLIGHT_CHANNEL, brightness);
+  ledcWrite(BACKLIGHT_PIN, brightness); // Fixed: use BACKLIGHT_PIN consistently
   // Save to EEPROM whenever brightness is changed
   saveBrightnessToEEPROM();
 }
 
 void saveBrightnessToEEPROM() {
-  EEPROM.write(BRIGHTNESS_EEPROM_ADDR, backlightBrightness);
-  EEPROM.write(BRIGHTNESS_EEPROM_ADDR + 1, 0xAA); // Initialization flag
+  EEPROM.write(EEPROM_BRIGHTNESS_ADDR, backlightBrightness);
+  EEPROM.write(EEPROM_BRIGHTNESS_FLAG_ADDR, EEPROM_BRIGHTNESS_FLAG); // Initialization flag
   EEPROM.commit();
   Serial.printf("Brightness saved to EEPROM: %d\n", backlightBrightness);
 }
 
 void loadBrightnessFromEEPROM() {
   // Read both brightness and initialization flag
-  uint8_t savedBrightness = EEPROM.read(BRIGHTNESS_EEPROM_ADDR);
-  uint8_t initFlag = EEPROM.read(BRIGHTNESS_EEPROM_ADDR + 1);
+  uint8_t savedBrightness = EEPROM.read(EEPROM_BRIGHTNESS_ADDR);
+  uint8_t initFlag = EEPROM.read(EEPROM_BRIGHTNESS_FLAG_ADDR);
   
-  // Check if EEPROM has been initialized (flag != 0xAA)
-  if (initFlag != 0xAA) {
+  // Check if EEPROM has been initialized (flag != EEPROM_BRIGHTNESS_FLAG)
+  if (initFlag != EEPROM_BRIGHTNESS_FLAG) {
     // EEPROM not initialized, use default brightness value of 150
     backlightBrightness = 150;
     saveBrightnessToEEPROM(); // Save default to EEPROM

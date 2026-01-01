@@ -31,7 +31,7 @@ extern const char *password;
 #define EEPROM_SIZE 512
 
 // Simulator configuration
-#define ENABLE_SIMULATOR 1  // Set to 0 to disable simulator completely
+#define ENABLE_SIMULATOR 0  // Set to 0 to disable simulator completely
 
 // Debug configuration
 #define ENABLE_DEBUG_MODE 1  // Set to 0 to disable debug mode completely
@@ -48,5 +48,33 @@ extern const char *password;
 #define SPLASH_ZYCAS 4
 #define SPLASH_SPINE 5
 #define DEFAULT_SPLASH_SCREEN SPLASH_MAZDUINO
+
+// Speeduino data mode options
+#define SPEEDUINO_MODE_A 0  // Simple data set (75 bytes) - for Arduino Mega clones with limited capability
+#define SPEEDUINO_MODE_N 1  // Enhanced data set (119 bytes) - full data for powerful controllers
+#define DEFAULT_SPEEDUINO_MODE SPEEDUINO_MODE_N
+
+// EEPROM Memory Allocation Map
+// ============================
+// Address 0:      System initialization flag
+// Address 1:      Communication mode (COMM_CAN=0, COMM_SERIAL=1)
+// Address 10:     Splash screen selection (0-5)
+// Address 11-12:  Display brightness + initialization flag (0xAA)
+// Address 14-15:  Speeduino data mode + initialization flag (0xBB)
+// Address 16-31:  Reserved for future features
+// Address 32+:    Display panel configurations
+
+#define EEPROM_COMM_MODE_ADDR           1
+#define EEPROM_SPLASH_SCREEN_ADDR       10
+#define EEPROM_BRIGHTNESS_ADDR          11
+#define EEPROM_BRIGHTNESS_FLAG_ADDR     12
+#define EEPROM_SPEEDUINO_MODE_ADDR      14  
+#define EEPROM_SPEEDUINO_FLAG_ADDR      15
+#define EEPROM_RESERVED_START_ADDR      16
+#define EEPROM_PANEL_CONFIG_START_ADDR  32
+
+// EEPROM initialization flags
+#define EEPROM_BRIGHTNESS_FLAG          0xAA
+#define EEPROM_SPEEDUINO_FLAG           0xBB
 
 #endif // CONFIG_H

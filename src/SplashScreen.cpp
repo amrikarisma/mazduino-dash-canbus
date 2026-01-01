@@ -5,12 +5,8 @@
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 #include "Arduino.h"
-#include "splash_image/mercy.h"
+#include "version.h"
 #include "splash_image/mazduino.h"
-#include "splash_image/hedon.h"
-#include "splash_image/biies.h"
-#include "splash_image/zycas.h"
-#include "splash_image/spine.h"
 #include <EEPROM.h>
 
 // External display object
@@ -23,7 +19,7 @@ void showAnimatedSplashScreen() {
   display.fillScreen(TFT_BLACK);
   
   // Load splash screen preference from EEPROM
-  selectedSplashScreen = EEPROM.read(10); // Use EEPROM address 10 for splash selection
+  selectedSplashScreen = EEPROM.read(EEPROM_SPLASH_SCREEN_ADDR); // Use centralized EEPROM address
   if (selectedSplashScreen != SPLASH_MAZDUINO && selectedSplashScreen != SPLASH_MERCY && selectedSplashScreen != SPLASH_HEDON && selectedSplashScreen != SPLASH_BIIES && selectedSplashScreen != SPLASH_ZYCAS && selectedSplashScreen != SPLASH_SPINE) {
     selectedSplashScreen = DEFAULT_SPLASH_SCREEN; // Default to mazduino if invalid
   }
@@ -34,27 +30,20 @@ void showAnimatedSplashScreen() {
   if (selectedSplashScreen == SPLASH_MAZDUINO) {
     // Mazduino uses monochrome bitmap format, use drawBitmap with white color
     display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
-  } else if (selectedSplashScreen == SPLASH_MERCY) {
-    // Mercy uses uint16_t RGB565 format, can use pushImage directly  
-    display.pushImage(0, 0, 480, 320, epd_bitmap_mercy);
-  } else if (selectedSplashScreen == SPLASH_HEDON) {
-    // Hedon uses uint16_t RGB565 format, can use pushImage directly  
-    display.pushImage(0, 0, 480, 320, epd_bitmap_hedon);
-  } else if (selectedSplashScreen == SPLASH_BIIES) {
-    // Biies uses uint16_t RGB565 format, can use pushImage directly
-    display.pushImage(0, 0, 480, 320, epd_bitmap_biies);
-  } else if (selectedSplashScreen == SPLASH_ZYCAS) {
-    // Zycas uses uint16_t RGB565 format, can use pushImage directly
-    display.pushImage(0, 0, 480, 320, epd_bitmap_zycas);
-  } else if (selectedSplashScreen == SPLASH_SPINE) {
-    // Spine uses uint16_t RGB565 format, can use pushImage directly
-    display.pushImage(0, 0, 480, 320, epd_bitmap_spine);
   } else {
-    // Default fallback to Mazduino
-    display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
+    // For all other splash screens, show informative text
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    display.setTextDatum(MC_DATUM);
+    display.drawString("MAZDUINO DISPLAY", 240, 140, 4);
+    display.drawString("Selected splash image not available", 240, 180, 2);
+    display.drawString("(Only Mazduino available for flash optimization)", 240, 200, 2);
+    display.drawString("Please select Mazduino splash", 240, 240, 2);
   }
   
   display.setSwapBytes(false); // Disable byte swapping after image display
+  
+  // Display version information overlay
+  drawVersionInfo(240, 300);
   
   // Get target brightness, cap at 200 for smooth fade
   int targetBrightness = (backlightBrightness > 200) ? 200 : (int)backlightBrightness;
@@ -85,7 +74,7 @@ int getSplashScreenSelection() {
 void setSplashScreenSelection(int selection) {
   if (selection == SPLASH_MAZDUINO || selection == SPLASH_MERCY || selection == SPLASH_HEDON || selection == SPLASH_BIIES || selection == SPLASH_ZYCAS || selection == SPLASH_SPINE) {
     selectedSplashScreen = selection;
-    EEPROM.write(10, selection);
+    EEPROM.write(EEPROM_SPLASH_SCREEN_ADDR, selection);
     EEPROM.commit();
   }
 }
@@ -113,6 +102,39 @@ void drawPulsingTitle(int centerX, int centerY) {
 
 void drawLoadingBar(int centerX, int centerY) {
   // Legacy function - now unused
+}
+
+void drawVersionInfo(int centerX, int centerY) {
+  // Set text properties for version info
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.setTextDatum(MC_DATUM);
+  display.setTextSize(1);
+  
+  // Create version strings with fallback if version.h is not available
+  #ifdef VERSION_STRING
+    String versionText = "v" + String(VERSION_STRING);
+    String buildInfo = String(BUILD_DATE) + " " + String(BUILD_TIME);
+    String commitInfo = "[" + String(BUILD_HASH) + "]";
+  #else
+    String versionText = "v1.3.0";
+    String buildInfo = "Development Build";
+    String commitInfo = "[dev]";
+  #endif
+  
+  // Draw version info at bottom of screen with semi-transparent background
+  int yPos = centerY;
+  
+  // Draw background rectangle for better readability
+  display.fillRoundRect(centerX - 120, yPos - 25, 240, 50, 8, TFT_BLACK);
+  display.drawRoundRect(centerX - 120, yPos - 25, 240, 50, 8, TFT_DARKGREY);
+  
+  // Draw version text
+  display.setTextSize(2);
+  display.drawString(versionText, centerX, yPos - 10);
+  display.setTextSize(1);
+  display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+  display.drawString(buildInfo, centerX, yPos + 8);
+  display.drawString(commitInfo, centerX, yPos + 18);
 }
 
 void drawFadeOutTransition() {

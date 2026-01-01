@@ -9,6 +9,7 @@ void drawFadeInBackground(int centerX, int centerY);
 void drawFadeInTitle(int centerX, int centerY);
 void drawFadeInSubtitle(int centerX, int centerY);
 void drawFadeInWebsite(int centerX, int centerY);
+void drawVersionInfo(int centerX, int centerY);
 void drawPulsingTitle(int centerX, int centerY);
 void drawLoadingBar(int centerX, int centerY);
 void drawFadeOutTransition();
