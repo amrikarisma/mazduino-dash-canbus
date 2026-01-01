@@ -7,15 +7,21 @@
 // EEPROM address for brightness (using address 11 to avoid conflicts)
 #define BRIGHTNESS_EEPROM_ADDR 11
 
-void setupBacklight() {
+void setupBacklight(bool isInitialStartup) {
   // Load brightness from EEPROM
   loadBrightnessFromEEPROM();
   
-  ledcSetup(BACKLIGHT_CHANNEL, BACKLIGHT_FREQ, BACKLIGHT_RESOLUTION);
-  ledcAttachPin(BACKLIGHT_PIN, BACKLIGHT_CHANNEL);
-  ledcWrite(BACKLIGHT_CHANNEL, backlightBrightness);
+  ledcAttach(BACKLIGHT_PIN, BACKLIGHT_FREQ, BACKLIGHT_RESOLUTION);
   
-  Serial.printf("Backlight initialized with brightness: %d\n", backlightBrightness);
+  // If initial startup, set LED to OFF initially
+  // so splash screen can fade from completely dark
+  if (isInitialStartup) {
+    ledcWrite(BACKLIGHT_PIN, 0); // Start completely off for smooth fade-in
+    Serial.printf("Backlight initialized OFF for smooth splash fade-in (saved brightness: %d)\n", backlightBrightness);
+  } else {
+    ledcWrite(BACKLIGHT_PIN, backlightBrightness);
+    Serial.printf("Backlight initialized with brightness: %d\n", backlightBrightness);
+  }
 }
 
 void setBacklightBrightness(uint8_t brightness) {
@@ -48,6 +54,12 @@ void loadBrightnessFromEEPROM() {
     backlightBrightness = savedBrightness;
     Serial.printf("Brightness loaded from EEPROM: %d\n", backlightBrightness);
   }
+}
+
+void enableBacklightAfterSplash() {
+  // Turn on backlight with saved brightness after splash screen
+  ledcWrite(BACKLIGHT_PIN, backlightBrightness);
+  Serial.printf("Backlight enabled after splash screen with brightness: %d\n", backlightBrightness);
 }
 
 

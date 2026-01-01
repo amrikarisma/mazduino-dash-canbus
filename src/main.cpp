@@ -206,12 +206,18 @@ void setup()
 {
   EEPROM.begin(EEPROM_SIZE);
   
-  // Initialize backlight control
-  setupBacklight();
+  // Initialize backlight control with startup parameter (LED dimmed for splash)
+  setupBacklight(true);
   
   // Initialize display
   setupDisplay();
+  
+  // Show splash screen with gradual fade-in effect
   drawSplashScreenWithImage();
+  
+  // Set backlight to normal brightness after splash screen
+  enableBacklightAfterSplash();
+  
   display.fillScreen(TFT_BLACK);
   
   Serial.begin(UART_BAUD);

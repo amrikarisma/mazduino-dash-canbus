@@ -1,8 +1,10 @@
 #include "SplashScreen.h"
 #include "Config.h"
 #include "GlobalVariables.h"
+#include "BacklightControl.h"
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
+#include "Arduino.h"
 #include "splash_image/mercy.h"
 #include "splash_image/mazduino.h"
 #include "splash_image/hedon.h"
@@ -54,8 +56,23 @@ void showAnimatedSplashScreen() {
   
   display.setSwapBytes(false); // Disable byte swapping after image display
   
-  // Hold the image for 3 seconds
-  delay(3000);
+  // Get target brightness, cap at 200 for smooth fade
+  int targetBrightness = (backlightBrightness > 200) ? 200 : (int)backlightBrightness;
+  
+  // Gradual fade-in effect from completely off to target brightness
+  for (int brightness = 0; brightness <= targetBrightness; brightness += 5) {
+    ledcWrite(BACKLIGHT_PIN, brightness);
+    delay(50); // Smooth fade-in over ~2 seconds
+  }
+  
+  // Hold the image for 2 seconds at target brightness
+  delay(2000);
+  
+  // Quick fade out back to off
+  for (int brightness = targetBrightness; brightness >= 0; brightness -= 10) {
+    ledcWrite(BACKLIGHT_PIN, brightness);
+    delay(20);
+  }
   
   // Simple fade to black
   display.fillScreen(TFT_BLACK);
