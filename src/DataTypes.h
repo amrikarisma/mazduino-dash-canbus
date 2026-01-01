@@ -46,4 +46,7 @@ extern uint32_t lastFpsUpdate;
 extern uint32_t lastCpuMeasure;
 extern uint32_t loopStartTime;
 
+// Screen management
+extern uint8_t currentScreen;
+
 #endif // DATATYPES_H

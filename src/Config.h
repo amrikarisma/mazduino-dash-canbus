@@ -5,6 +5,8 @@
 extern const char *version;
 
 // WiFi Configuration
+#define DEFAULT_SSID "MAZDUINO_Display"
+#define DEFAULT_PASSWORD "12345678"
 extern const char *ssid;
 extern const char *password;
 
@@ -26,6 +28,29 @@ extern const char *password;
 
 // RPM Configuration
 #define DEFAULT_MAX_RPM 8000
+
+// Touch screen pins (dedicated SPI bus)
+#define XPT2046_CS 33
+#define XPT2046_IRQ 27
+#define XPT2046_MOSI 13  // DIN
+#define XPT2046_MISO 12  // DO  
+#define XPT2046_CLK 14
+
+// Touch calibration defaults
+#define TOUCH_MIN_X 200
+#define TOUCH_MAX_X 3700
+#define TOUCH_MIN_Y 240
+#define TOUCH_MAX_Y 3800
+
+// Screen definitions
+#define SCREEN_MAIN 0
+#define SCREEN_CONFIG 1
+#define SCREEN_BENCH 2
+#define TOTAL_SCREENS 3
+
+// Swipe gesture constants
+#define SWIPE_MIN_DISTANCE 25
+#define SWIPE_MAX_TIME 1000
 
 // Other constants
 #define EEPROM_SIZE 512

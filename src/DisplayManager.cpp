@@ -6,10 +6,15 @@
 #include "SplashScreen.h"
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
+#include "TouchHandler.h"
 #include <EEPROM.h>
+#include <WiFi.h>
 #if ENABLE_SIMULATOR
 #include "Simulator.h"
 #endif
+
+// External references
+extern TouchHandler touchHandler;
 
 TFT_eSPI display = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&display);
@@ -98,6 +103,15 @@ void drawConfigurableData(bool setup) {
   // Draw RPM and VSS with reduced frequency update (only when changed or setup)
   static uint32_t lastRpmUpdate = 0;
   static unsigned int lastVss = 999; // Different initial value to force first update
+  static unsigned int lastRpm = 999; // Track last RPM for comparison
+  
+  // Reset static variables on force redraw (screen change)
+  if (setup) {
+    lastRpm = 999; // Force redraw by making values different
+    lastVss = 999;
+    lastRpmUpdate = 0;
+  }
+  
   if (lastRpm != rpm || lastVss != vss || setup || (millis() - lastRpmUpdate > 100)) {
     drawRPMBarBlocks(rpm); // Use default maxRPM from config
     
@@ -139,6 +153,9 @@ void drawConfigurableData(bool setup) {
   
   // Draw configurable panels with reduced frequency
   static uint32_t lastPanelUpdate = 0;
+  if (setup) {
+    lastPanelUpdate = 0; // Force panel redraw
+  }
   if (setup || (millis() - lastPanelUpdate > 50)) { // Update panels every 50ms max
     drawConfigurablePanels(setup);
     lastPanelUpdate = millis();
@@ -146,6 +163,9 @@ void drawConfigurableData(bool setup) {
   
   // Draw configurable indicators with reduced frequency
   static uint32_t lastIndicatorUpdate = 0;
+  if (setup) {
+    lastIndicatorUpdate = 0; // Force indicator redraw
+  }
   if (setup || (millis() - lastIndicatorUpdate > 100)) { // Update indicators every 100ms max
     drawConfigurableIndicators();
     lastIndicatorUpdate = millis();
@@ -213,8 +233,26 @@ void drawDataBox(int x, int y, const char *label, const float value, uint16_t la
 }
 
 void drawData() {
+  // Draw different screens based on currentScreen
+  switch (currentScreen) {
+    case SCREEN_MAIN:
+      drawMainScreen();
+      break;
+    case SCREEN_CONFIG:
+      drawConfigScreen();
+      break;
+    case SCREEN_BENCH:
+      drawBenchScreen();
+      break;
+    default:
+      drawMainScreen(); // Fallback to main screen
+      break;
+  }
+}
+
+void drawMainScreen(bool forceRedraw) {
   // Use configurable display system with performance optimizations
-  drawConfigurableData(false);
+  drawConfigurableData(forceRedraw);
   
 #if ENABLE_SIMULATOR
   // Draw simulator indicator if simulator is active (with reduced update frequency)
@@ -222,8 +260,8 @@ void drawData() {
   static uint32_t lastSimUpdate = 0;
   uint8_t currentSimMode = getSimulatorMode();
   
-  // Only redraw if simulator mode has changed or every 500ms
-  if (currentSimMode != lastSimMode || (millis() - lastSimUpdate > 500)) {
+  // Force redraw or update if simulator mode has changed or every 500ms
+  if (forceRedraw || currentSimMode != lastSimMode || (millis() - lastSimUpdate > 500)) {
     if (currentSimMode != SIMULATOR_MODE_OFF) {
       // Clear the SIM area first
       display.fillRect(display.width() - 30, 5, 25, 15, TFT_BLACK);
@@ -250,8 +288,8 @@ void drawData() {
   
   String currentCommText = isCANMode ? "CAN" : "SER";
   
-  // Only redraw if communication mode has changed or every 1000ms
-  if (isCANMode != lastCommMode || currentCommText != lastCommText || (millis() - lastCommUpdate > 1000)) {
+  // Force redraw or update if communication mode has changed or every 1000ms
+  if (forceRedraw || isCANMode != lastCommMode || currentCommText != lastCommText || (millis() - lastCommUpdate > 1000)) {
     // Clear the comm mode area first
     display.fillRect(5, 5, 40, 15, TFT_BLACK);
     
@@ -274,7 +312,7 @@ void drawData() {
     // Create debug info string - show only essential info in one line
     String debugInfo = "CPU:" + String(cpuUsage, 1) + "% FPS:" + String(fps, 1) + " Heap:" + String(ESP.getFreeHeap()/1024) + "K";
     
-    if (debugInfo != lastDebugInfo || !lastDebugMode) {
+    if (forceRedraw || debugInfo != lastDebugInfo || !lastDebugMode) {
       int centerX = display.width() / 2;
       
       // Clear the debug area first to prevent font overlap
@@ -292,7 +330,7 @@ void drawData() {
     lastDebugMode = true;
   } else {
     // Clear debug area when debug mode is turned off
-    if (lastDebugMode) {
+    if (lastDebugMode || forceRedraw) {
       // Clear the top center area where debug info was displayed
       display.fillRect(0, 5, display.width(), 20, TFT_BLACK);
       lastDebugMode = false;
@@ -300,4 +338,146 @@ void drawData() {
     }
   }
 #endif
+
+  // Draw screen indicator (bottom right) - always draw on force redraw
+  static bool screenIndicatorDrawn = false;
+  if (forceRedraw || !screenIndicatorDrawn) {
+    display.loadFont(AA_FONT_SMALL);
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    display.setTextDatum(BR_DATUM);
+    display.drawString("MAIN", display.width() - 5, display.height() - 5);
+    screenIndicatorDrawn = true;
+  }
+}
+
+void drawConfigScreen() {
+  static bool screenInitialized = false;
+  
+  if (!screenInitialized) {
+    display.fillScreen(TFT_BLACK);
+    screenInitialized = true;
+  }
+  
+  // Configuration Screen Header
+  display.loadFont(AA_FONT_LARGE);
+  display.setTextColor(TFT_CYAN, TFT_BLACK);
+  display.setTextDatum(TC_DATUM);
+  display.drawString("CONFIGURATION", display.width()/2, 20);
+  
+  // Configuration options
+  display.loadFont(AA_FONT_SMALL);
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.setTextDatum(TL_DATUM);
+  
+  int yPos = 70;
+  display.drawString("WiFi Settings", 30, yPos);
+  yPos += 30;
+  display.drawString("Display Settings", 30, yPos);
+  yPos += 30;
+  display.drawString("CAN Settings", 30, yPos);
+  yPos += 30;
+  display.drawString("System Settings", 30, yPos);
+  yPos += 30;
+  display.drawString("Calibration", 30, yPos);
+  
+  // Current settings display
+  display.setTextColor(TFT_YELLOW, TFT_BLACK);
+  display.setTextDatum(TR_DATUM);
+  yPos = 70;
+  display.drawString(WiFi.status() == WL_CONNECTED ? "Connected" : "AP Mode", display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString(String(backlightBrightness) + "%", display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString(isCANMode ? "Enabled" : "Disabled", display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString("v" + String(version), display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString(touchHandler.isCalibrationValid() ? "OK" : "Needed", display.width() - 30, yPos);
+  
+  // Navigation hint
+  display.loadFont(AA_FONT_SMALL);
+  display.setTextColor(TFT_GREEN, TFT_BLACK);
+  display.setTextDatum(BC_DATUM);
+  display.drawString("< Swipe Right: Main", display.width()/2, display.height() - 30);
+  
+  // Screen indicator
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.setTextDatum(BR_DATUM);
+  display.drawString("CONFIG", display.width() - 5, display.height() - 5);
+  
+  // Reset initialization flag when leaving screen
+  static uint8_t lastScreen = SCREEN_CONFIG;
+  if (currentScreen != lastScreen) {
+    screenInitialized = false;
+    lastScreen = currentScreen;
+  }
+}
+
+void drawBenchScreen() {
+  static bool screenInitialized = false;
+  
+  if (!screenInitialized) {
+    display.fillScreen(TFT_BLACK);
+    screenInitialized = true;
+  }
+  
+  // Bench Test Screen Header
+  display.loadFont(AA_FONT_LARGE);
+  display.setTextColor(TFT_RED, TFT_BLACK);
+  display.setTextDatum(TC_DATUM);
+  display.drawString("BENCH TEST", display.width()/2, 20);
+  
+  // Test options
+  display.loadFont(AA_FONT_SMALL);
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.setTextDatum(TL_DATUM);
+  
+  int yPos = 70;
+  display.drawString("Injector Test", 30, yPos);
+  yPos += 30;
+  display.drawString("Ignition Test", 30, yPos);
+  yPos += 30;
+  display.drawString("Fuel Pump Test", 30, yPos);
+  yPos += 30;
+  display.drawString("Idle Air Test", 30, yPos);
+  yPos += 30;
+  display.drawString("Fan Test", 30, yPos);
+  
+  // Test status
+  display.setTextColor(TFT_ORANGE, TFT_BLACK);
+  display.setTextDatum(TR_DATUM);
+  yPos = 70;
+  display.drawString("Ready", display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString("Ready", display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString("Ready", display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString("Ready", display.width() - 30, yPos);
+  yPos += 30;
+  display.drawString("Ready", display.width() - 30, yPos);
+  
+  // Warning message
+  display.setTextColor(TFT_YELLOW, TFT_BLACK);
+  display.setTextDatum(TC_DATUM);
+  display.drawString("WARNING: Engine must be OFF", display.width()/2, 220);
+  display.drawString("for all bench tests!", display.width()/2, 240);
+  
+  // Navigation hint
+  display.loadFont(AA_FONT_SMALL);
+  display.setTextColor(TFT_GREEN, TFT_BLACK);
+  display.setTextDatum(BC_DATUM);
+  display.drawString("< Swipe Left: Main", display.width()/2, display.height() - 30);
+  
+  // Screen indicator
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.setTextDatum(BR_DATUM);
+  display.drawString("BENCH", display.width() - 5, display.height() - 5);
+  
+  // Reset initialization flag when leaving screen
+  static uint8_t lastScreen = SCREEN_BENCH;
+  if (currentScreen != lastScreen) {
+    screenInitialized = false;
+    lastScreen = currentScreen;
+  }
 }

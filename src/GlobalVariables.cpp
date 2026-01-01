@@ -1,10 +1,15 @@
 #include "DataTypes.h"
 #include "Config.h"
+#include "version.h"
 
 // Configuration variables from Config.h
-const char *version = "1.2.1";
-const char *ssid = "MAZDUINO_Display";
-const char *password = "12345678";
+#ifdef VERSION_STRING
+const char *version = VERSION_STRING;
+#else
+const char *version = "1.3.0-touch.dev";
+#endif
+const char *ssid = DEFAULT_SSID;
+const char *password = DEFAULT_PASSWORD;
 
 // Global variables for ECU data
 uint8_t iat = 0, clt = 0;
@@ -48,3 +53,6 @@ uint32_t frameCount = 0;
 uint32_t lastFpsUpdate = 0;
 uint32_t lastCpuMeasure = 0;
 uint32_t loopStartTime = 0;
+
+// Screen management
+uint8_t currentScreen = SCREEN_MAIN;

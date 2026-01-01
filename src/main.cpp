@@ -13,6 +13,7 @@
 #include "DisplayManager.h"
 #include "WebServerHandler.h"
 #include "GlobalVariables.h"
+#include "TouchHandler.h"
 
 // Include legacy headers for compatibility
 #include "Comms.h"
@@ -82,7 +83,19 @@ void handleSerialCommands()
         Serial.printf("Chip Model: %s\n", ESP.getChipModel());
         Serial.printf("Chip Revision: %d\n", ESP.getChipRevision());
         Serial.printf("Uptime: %d seconds\n", (millis() - startupTime) / 1000);
+        
+        // Touch info
+        touchHandler.printTouchInfo();
+        Serial.printf("Current Screen: %d (0=Main, 1=Config, 2=Bench)\\n", currentScreen);
+        
         Serial.println("==================");
+        break;
+      case 't':
+      case 'T':
+        // Touch calibration
+        Serial.println("Starting touch calibration...");
+        touchHandler.calibrate();
+        Serial.println("Touch calibration completed!");
         break;
 #endif
       case 'h':
@@ -102,6 +115,8 @@ void handleSerialCommands()
         Serial.println("d = Toggle debug mode");
         Serial.println("i = Show system info");
 #endif
+        Serial.println("TOUCH COMMANDS:");
+        Serial.println("t = Calibrate touchscreen");
         Serial.println("NETWORK COMMANDS:");
         Serial.println("w = Restart WiFi/Web Server");
         Serial.println("h = Show this help");
@@ -212,6 +227,24 @@ void setup()
   // Initialize display
   setupDisplay();
   
+  // Initialize touch controller
+  Serial.println("Initializing touch controller...");
+  if (touchHandler.begin()) {
+    Serial.println("Touch controller initialized successfully");
+    
+    // Setup touch navigation areas
+    setupTouchNavigation();
+    
+    // Check if calibration is needed
+    if (!touchHandler.isCalibrationValid()) {
+      Serial.println("Touch calibration required...");
+      // Uncomment the next line to force calibration on first boot
+      // touchHandler.calibrate();
+    }
+  } else {
+    Serial.println("WARNING: Touch controller initialization failed");
+  }
+  
   // Show splash screen with gradual fade-in effect
   drawSplashScreenWithImage();
   
@@ -281,6 +314,7 @@ void setup()
   Serial.println("=== DEBUG MODE AVAILABLE ===");
   Serial.println("Send 'd' to toggle debug mode");
   Serial.println("Send 'i' for system info");
+  Serial.println("Send 't' for touch calibration");
   Serial.println("Debug shows CPU usage & FPS");
   Serial.printf("Initial debug values - CPU: %.1f%%, FPS: %.1f\n", cpuUsage, fps);
   Serial.println("============================");
@@ -309,6 +343,9 @@ void loop()
 
   // Handle all serial commands (simulator and debug) in one place
   handleSerialCommands();
+  
+  // Handle touch input
+  handleTouchNavigation();
 
 #if ENABLE_SIMULATOR
   // Update simulator data if enabled - this overrides real data
