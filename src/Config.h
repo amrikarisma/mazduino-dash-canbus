@@ -27,7 +27,7 @@ extern const char *password;
 #define COMM_SERIAL 1
 
 // RPM Configuration
-#define DEFAULT_MAX_RPM 8000
+#define DEFAULT_MAX_RPM 9000
 
 // Touch screen pins (dedicated SPI bus)
 #define XPT2046_CS 33
@@ -56,14 +56,14 @@ extern const char *password;
 #define EEPROM_SIZE 512
 
 // Simulator configuration
-#define ENABLE_SIMULATOR 0  // Set to 0 to disable simulator completely
+#define ENABLE_SIMULATOR 1  // Set to 0 to disable simulator completely
 
 // Debug configuration
 #define ENABLE_DEBUG_MODE 1  // Set to 0 to disable debug mode completely
 
 // Font definitions
-#define AA_FONT_SMALL NotoSansBold15
-#define AA_FONT_LARGE NotoSansBold36
+#define AA_FONT_SMALL Roboto16
+#define AA_FONT_LARGE RobotoBold32
 
 // Splash screen options
 #define SPLASH_MAZDUINO 0

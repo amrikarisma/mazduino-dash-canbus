@@ -18,10 +18,10 @@ void initializeSimulator() {
   Serial.println("Simulator starts in OFF mode by default");
   Serial.println("Available modes:");
   Serial.println("0 = OFF (use real data)");
-  Serial.println("1 = RPM SWEEP (0-6000 RPM)");
+  Serial.println("1 = RPM SWEEP (0-8000 RPM)");
   Serial.println("2 = ENGINE IDLE (800-900 RPM)");
   Serial.println("3 = DRIVING (1500-4000 RPM)");
-  Serial.println("4 = REDLINE (5500-6000 RPM)");
+  Serial.println("4 = REDLINE (7000-8000 RPM)");
   Serial.println("Send '1', '2', '3', '4' via Serial to change mode");
   Serial.println("Send '0' to turn off simulator");
   Serial.println("Send 'h' for help");
@@ -43,7 +43,7 @@ void setSimulatorMode(uint8_t mode) {
       rpm = 0; // Reset to 0 when turning off
       break;
     case SIMULATOR_MODE_RPM_SWEEP:
-      Serial.println("[SIM] RPM SWEEP Mode - 0 to 6000 RPM");
+      Serial.println("[SIM] RPM SWEEP Mode - 0 to 8000 RPM");
       rpm = 0; // Start from 0
       break;
     case SIMULATOR_MODE_ENGINE_IDLE:
@@ -55,8 +55,8 @@ void setSimulatorMode(uint8_t mode) {
       rpm = 2500; // Start at mid-range
       break;
     case SIMULATOR_MODE_REDLINE:
-      Serial.println("[SIM] REDLINE Mode - 5500-6000 RPM");
-      rpm = 5750; // Start at redline
+      Serial.println("[SIM] REDLINE Mode - 7000-8000 RPM");
+      rpm = 7500; // Start at redline
       break;
     default:
       Serial.println("[SIM] Unknown mode, turning off");
@@ -84,12 +84,12 @@ void updateSimulatorData() {
   // Generate realistic sensor data based on RPM
   switch(simulatorMode) {
     case SIMULATOR_MODE_RPM_SWEEP:
-      // Sweep from 0 to 6000 RPM and back
+      // Sweep from 0 to 8000 RPM and back
       if (rpmIncreasing) {
         rpm = simulatorStep * 50; // Increase by 50 RPM each step
-        if (rpm >= 6000) {
+        if (rpm >= 8000) {
           rpmIncreasing = false;
-          simulatorStep = 120; // 6000/50 = 120
+          simulatorStep = 160; // 8000/50 = 160
         } else {
           simulatorStep++;
         }
@@ -118,7 +118,7 @@ void updateSimulatorData() {
       
     case SIMULATOR_MODE_REDLINE:
       // High RPM simulation
-      rpm = 5750 + (simulatorStep % 20) * 10; // 5750-5940 RPM
+      rpm = 7500 + (simulatorStep % 20) * 25; // 7500-7975 RPM
       simulatorStep++;
       break;
   }
@@ -150,9 +150,9 @@ void updateSimulatorData() {
     dfco = false;
   } else {
     // Engine running - generate realistic values
-    mapData = map(rpm, 800, 6000, 35, 95);  // 35-95 kPa MAP
-    tps = map(rpm, 800, 6000, 5, 85);       // 5-85% TPS
-    adv = map(rpm, 800, 6000, 10, 35);      // 10-35° advance
+    mapData = map(rpm, 800, 8000, 35, 95);  // 35-95 kPa MAP
+    tps = map(rpm, 800, 8000, 5, 85);       // 5-85% TPS
+    adv = map(rpm, 800, 8000, 10, 35);      // 10-35° advance
     
     // AFR varies with load
     if (rpm < 1000) {
@@ -163,13 +163,13 @@ void updateSimulatorData() {
       afrConv = 14.2; // Slightly lean cruise
     }
     
-    fp = map(rpm, 800, 6000, 250, 350);     // 250-350 kPa fuel pressure
+    fp = map(rpm, 800, 8000, 250, 350);     // 250-350 kPa fuel pressure
     triggerError = 0;                        // No errors in sim
-    vss = map(rpm, 800, 6000, 0, 120);     // 0-120 km/h speed
+    vss = map(rpm, 800, 8000, 0, 160);     // 0-160 km/h speed
     
     // Temperature sensors (engine running)
-    clt = map(rpm, 800, 6000, 85, 95);     // 85-95°C coolant
-    iat = map(rpm, 800, 6000, 30, 45);     // 30-45°C intake air
+    clt = map(rpm, 800, 8000, 85, 105);     // 85-105°C coolant
+    iat = map(rpm, 800, 8000, 30, 55);     // 30-55°C intake air
     bat = 14.2;                            // Charging voltage
     
     // Engine indicators based on RPM

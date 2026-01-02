@@ -1,49 +1,18 @@
 #ifndef MAIN_SCREEN_H
 #define MAIN_SCREEN_H
 
-#include <Arduino.h>
+#include <TFT_eSPI.h>
+#include "DisplayConfig.h"
 
-// Forward declarations
-class TFT_eSPI;
-class TFT_eSprite;
+// External display objects
+extern TFT_eSPI display;
+extern TFT_eSprite spr;
 
-/**
- * MainScreen - Handles the main dashboard display
- * Shows ECU data like RPM, VSS, and configurable data panels
- */
-class MainScreen {
-public:
-    MainScreen();
-    
-    /**
-     * Initialize the main screen
-     */
-    void begin();
-    
-    /**
-     * Draw the main screen content
-     * @param forceRedraw Force complete redraw of all elements
-     */
-    void draw(bool forceRedraw = false);
-    
-    /**
-     * Update main screen data (called frequently)
-     */
-    void update();
-    
-private:
-    // Helper functions
-    void drawConfigurableData(bool setup);
-    void drawStatusIndicators(bool forceRedraw);
-    void drawScreenIndicator(bool forceRedraw);
-    
-    // Static variables for update tracking
-    static bool initialized;
-    static uint32_t lastFullUpdate;
-    static bool screenIndicatorDrawn;
-};
-
-// Global instance
-extern MainScreen mainScreen;
+// Main screen function declarations
+void drawConfigurablePanels(bool setup);
+void drawModularDataPanel(const DisplayPanel &panel, bool setup);
+void drawConfigurableIndicators();
+void drawConfigurableData(bool setup);
+void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const float valueToCompare, const int decimal, bool setup);
 
 #endif // MAIN_SCREEN_H

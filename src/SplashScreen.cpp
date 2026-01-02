@@ -2,8 +2,8 @@
 #include "Config.h"
 #include "GlobalVariables.h"
 #include "BacklightControl.h"
-#include "NotoSansBold15.h"
-#include "NotoSansBold36.h"
+#include "Roboto16.h"
+#include "RobotoBold32.h"
 #include "Arduino.h"
 #include "version.h"
 #include "splash_image/mazduino.h"
@@ -125,16 +125,16 @@ void drawVersionInfo(int centerX, int centerY) {
   int yPos = centerY;
   
   // Draw background rectangle for better readability
-  display.fillRoundRect(centerX - 120, yPos - 25, 240, 50, 8, TFT_BLACK);
-  display.drawRoundRect(centerX - 120, yPos - 25, 240, 50, 8, TFT_DARKGREY);
+  display.fillRoundRect(centerX - 120, yPos - 30, 240, 50, 8, TFT_BLACK);
+  display.drawRoundRect(centerX - 120, yPos - 30, 240, 50, 8, TFT_DARKGREY);
   
   // Draw version text
   display.setTextSize(2);
-  display.drawString(versionText, centerX, yPos - 10);
+  display.drawString(versionText, centerX, yPos - 15);
   display.setTextSize(1);
   display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  display.drawString(buildInfo, centerX, yPos + 8);
-  display.drawString(commitInfo, centerX, yPos + 18);
+  display.drawString(buildInfo, centerX, yPos + 3);
+  display.drawString(commitInfo, centerX, yPos + 13);
 }
 
 void drawFadeOutTransition() {

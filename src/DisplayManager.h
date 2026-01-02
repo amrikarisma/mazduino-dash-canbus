@@ -15,10 +15,7 @@ void startUpDisplay();
 void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const float valueToCompare, const int decimal, bool setup);
 void drawData();
 
-// Modular display functions (moved to separate screen classes)
-// MainScreen handles main dashboard display
-// ConfigScreen handles configuration interface
-// BenchScreen handles bench test interface
+// Display functions implemented in MainScreen.cpp for single screen mode
 void drawConfigurableData(bool setup);
 void drawConfigurablePanels(bool setup);
 void drawConfigurableIndicators();

@@ -2,8 +2,8 @@
 #include "GlobalVariables.h"
 #include "Config.h"
 #include "Simulator.h"
-#include "NotoSansBold15.h"
-#include "NotoSansBold36.h"
+#include "Roboto16.h"
+#include "RobotoBold32.h"
 #include <TFT_eSPI.h>
 
 // External references
