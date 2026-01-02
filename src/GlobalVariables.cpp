@@ -19,6 +19,16 @@ int mapData, tps, adv, fp, triggerError = 0;
 float bat = 0.0, afrConv = 0.0;
 bool syncStatus, fan, ase, wue, rev, launch, airCon, dfco;
 
+// Additional variables for RusEFI protocol
+float oilPressure = 0.0, oilTemp = 0.0, fuelLevel = 0.0, fuelTemp = 0.0;
+float ignitionTiming = 0.0, injDuty = 0.0, ignDuty = 0.0, flexPct = 0.0;
+float pps = 0.0, tps1 = 0.0, tps2 = 0.0, wastegate = 0.0;
+float aux1Temp = 0.0, aux2Temp = 0.0, mcuTemp = 0.0;
+float lam1 = 0.0, lam2 = 0.0, fpLow = 0.0, fpHigh = 0.0;
+uint8_t currentGear = 0;
+uint16_t warningCounter = 0, lastError = 0, distanceTraveled = 0;
+bool revLimAct = false, mainRelayAct = false, fuelPumpAct = false, celAct = false, egoHeatAct = false, lambdaProtectAct = false, fan2 = false;
+
 // Last values for comparison
 int lastIat = -1, lastClt = -1, lastTps = -1, lastAdv = -1, lastMapData = -1, lastFp = -1, lastTriggerError = -1;
 float lastBat = -1, lastAfrConv = -1;
@@ -35,6 +45,7 @@ uint8_t speeduinoDataMode = DEFAULT_SPEEDUINO_MODE; // Default to enhanced mode
 
 // Communication variables
 int commMode = COMM_CAN;
+uint8_t canProtocol = DEFAULT_CAN_PROTOCOL;  // 0 = Haltech, 1 = RusEFI
 bool sent = false, received = true;
 bool isCANMode = true;  // Default to CAN mode
 

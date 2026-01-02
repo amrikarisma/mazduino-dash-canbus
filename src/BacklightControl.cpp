@@ -23,7 +23,7 @@ void setupBacklight(bool isInitialStartup) {
 
 void setBacklightBrightness(uint8_t brightness) {
   backlightBrightness = brightness;
-  ledcWrite(BACKLIGHT_PIN, brightness); // Fixed: use BACKLIGHT_PIN consistently
+  ledcWrite(BACKLIGHT_PIN, brightness);
   // Save to EEPROM whenever brightness is changed
   saveBrightnessToEEPROM();
 }

@@ -1795,6 +1795,8 @@ void startWebServer()
   
   server.on("/canspeed", HTTP_GET, handleCanSpeed);
   server.on("/canspeed", HTTP_POST, handleCanSpeed);
+  server.on("/canprotocol", HTTP_GET, handleCanProtocol);
+  server.on("/canprotocol", HTTP_POST, handleCanProtocol);
   
   // Splash screen configuration handler
   server.on("/splash", HTTP_GET, [&]() {
@@ -2257,6 +2259,34 @@ void handleCanSpeed() {
       }
     } else {
       server.send(400, "text/plain", "Missing speed param");
+    }
+  } else {
+    server.send(405, "text/plain", "Method Not Allowed");
+  }
+}
+
+void handleCanProtocol() {
+  if (server.method() == HTTP_GET) {
+    uint8_t protocol = getCanProtocol();
+    const char* protocolName = (protocol == CAN_PROTOCOL_HALTECH) ? "haltech" : "rusefi";
+    server.send(200, "text/plain", protocolName);
+  } else if (server.method() == HTTP_POST) {
+    if (server.hasArg("protocol")) {
+      String protocolStr = server.arg("protocol");
+      protocolStr.toLowerCase();
+      if (protocolStr == "haltech") {
+        setCanProtocol(CAN_PROTOCOL_HALTECH);
+        server.send(200, "text/plain", "OK");
+        Serial.println("CAN protocol set to Haltech via webserver");
+      } else if (protocolStr == "rusefi") {
+        setCanProtocol(CAN_PROTOCOL_RUSEFI);
+        server.send(200, "text/plain", "OK");
+        Serial.println("CAN protocol set to RusEFI via webserver");
+      } else {
+        server.send(400, "text/plain", "Invalid protocol (use: haltech or rusefi)");
+      }
+    } else {
+      server.send(400, "text/plain", "Missing protocol param");
     }
   } else {
     server.send(405, "text/plain", "Method Not Allowed");

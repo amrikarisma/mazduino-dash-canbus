@@ -11,6 +11,16 @@ extern int mapData, tps, adv, fp, triggerError;
 extern float bat, afrConv;
 extern bool syncStatus, fan, ase, wue, rev, launch, airCon, dfco;
 
+// Additional variables for RusEFI protocol
+extern float oilPressure, oilTemp, fuelLevel, fuelTemp;
+extern float ignitionTiming, injDuty, ignDuty, flexPct;
+extern float pps, tps1, tps2, wastegate;
+extern float aux1Temp, aux2Temp, mcuTemp;
+extern float lam1, lam2, fpLow, fpHigh;
+extern uint8_t currentGear;
+extern uint16_t warningCounter, lastError, distanceTraveled;
+extern bool revLimAct, mainRelayAct, fuelPumpAct, celAct, egoHeatAct, lambdaProtectAct, fan2;
+
 // Last values for comparison
 extern int lastIat, lastClt, lastTps, lastAdv, lastMapData, lastFp, lastTriggerError;
 extern float lastBat, lastAfrConv;
@@ -27,6 +37,7 @@ extern uint8_t speeduinoDataMode; // 0 = Mode A (simple), 1 = Mode N (enhanced)
 
 // Communication variables
 extern int commMode;
+extern uint8_t canProtocol;  // 0 = Haltech, 1 = RusEFI
 extern bool sent, received;
 extern bool isCANMode;  // true for CAN, false for Serial
 

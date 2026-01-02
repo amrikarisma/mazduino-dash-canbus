@@ -1,5 +1,6 @@
 #include "TouchHandler.h"
 #include "Config.h"
+#include "ConfigScreen.h"
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
 #include <SPI.h>
@@ -571,7 +572,22 @@ void handleTouchNavigation() {
   
   // Handle regular touch areas for current screen
   if (touch.isValid && touch.pressed) {
-    touchHandler.handleTouchAreas(touch.x, touch.y);
+    // Handle CONFIG screen touches
+    if (currentScreen == SCREEN_CONFIG) {
+      if (configScreen.handleTouch(touch.x, touch.y)) {
+        Serial.printf("[Touch] Config screen handled touch at (%d, %d)\n", touch.x, touch.y);
+      }
+    } else {
+      // Handle other screen touches
+      touchHandler.handleTouchAreas(touch.x, touch.y);
+    }
+  } else if (touch.isValid && !touch.pressed) {
+    // Handle touch release
+    if (currentScreen == SCREEN_CONFIG) {
+      if (configScreen.handleTouchRelease()) {
+        Serial.println("[Touch] Config screen handled touch release");
+      }
+    }
   }
 }
 

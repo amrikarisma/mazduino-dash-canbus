@@ -11,6 +11,7 @@
 #include "CANHandler.h"
 #include "SerialHandler.h"
 #include "DisplayManager.h"
+#include "DisplayConfig.h"
 #include "WebServerHandler.h"
 #include "GlobalVariables.h"
 #include "TouchHandler.h"
@@ -117,10 +118,50 @@ void handleSerialCommands()
 #endif
         Serial.println("TOUCH COMMANDS:");
         Serial.println("t = Calibrate touchscreen");
+        Serial.println("CAN COMMANDS:");
+        Serial.println("p = Switch CAN protocol (Haltech/RusEFI)");
+        Serial.println("s = Show CAN status");
         Serial.println("NETWORK COMMANDS:");
         Serial.println("w = Restart WiFi/Web Server");
         Serial.println("h = Show this help");
         Serial.println("===================");
+        break;
+      case 'p':
+      case 'P':
+        // Switch CAN protocol
+        if (canProtocol == CAN_PROTOCOL_HALTECH) {
+          setCanProtocol(CAN_PROTOCOL_RUSEFI);
+          Serial.println("Switched to RusEFI CAN protocol");
+          Serial.println("Please restart the device for changes to take effect");
+        } else {
+          setCanProtocol(CAN_PROTOCOL_HALTECH);
+          Serial.println("Switched to Haltech CAN protocol");
+          Serial.println("Please restart the device for changes to take effect");
+        }
+        break;
+      case 's':
+      case 'S':
+        // Show CAN status
+        Serial.println("=== CAN STATUS ===");
+        Serial.printf("Communication mode: %s\n", isCANMode ? "CAN" : "Serial");
+        Serial.printf("CAN Protocol: %s\n", (canProtocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
+        Serial.printf("CAN Speed: %u bps\n", getCanSpeed());
+        if (isCANMode) {
+          Serial.printf("RPM: %d\n", rpm);
+          Serial.printf("VSS: %d km/h\n", vss);
+          Serial.printf("MAP: %d kPa\n", mapData);
+          Serial.printf("CLT: %d°C\n", clt);
+          Serial.printf("IAT: %d°C\n", iat);
+          Serial.printf("AFR: %.2f\n", afrConv);
+          Serial.printf("Battery: %.1fV\n", bat);
+          if (canProtocol == CAN_PROTOCOL_RUSEFI) {
+            Serial.printf("Current Gear: %d\n", currentGear);
+            Serial.printf("Oil Pressure: %.1f kPa\n", oilPressure);
+            Serial.printf("Oil Temperature: %.0f°C\n", oilTemp);
+            Serial.printf("Fuel Level: %.1f%%\n", fuelLevel);
+          }
+        }
+        Serial.println("==================");
         break;
       case 'w':
       case 'W':
@@ -255,6 +296,9 @@ void setup()
   
   Serial.begin(UART_BAUD);
   commMode = EEPROM.read(EEPROM_COMM_MODE_ADDR);
+  
+  // Load CAN protocol configuration
+  loadCanProtocol();
   
   // Load Speeduino data mode from EEPROM
   loadSpeeduinoDataModeFromEEPROM();

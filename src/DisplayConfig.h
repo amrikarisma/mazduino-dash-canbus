@@ -88,5 +88,9 @@ uint16_t getDataSourceColor(uint8_t dataSource, float value);
 // New CAN speed accessors
 uint32_t getCanSpeed();
 void setCanSpeed(uint32_t speed);
+// CAN protocol accessors
+uint8_t getCanProtocol();
+void setCanProtocol(uint8_t protocol);
+void loadCanProtocol();
 
 #endif // DISPLAY_CONFIG_H

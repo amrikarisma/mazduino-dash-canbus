@@ -189,3 +189,30 @@ void setCanSpeed(uint32_t speed) {
   currentDisplayConfig.canSpeed = speed;
   saveDisplayConfig();
 }
+
+uint8_t getCanProtocol() {
+  return canProtocol;
+}
+
+void setCanProtocol(uint8_t protocol) {
+  canProtocol = protocol;
+  
+  // Save to EEPROM
+  EEPROM.write(EEPROM_CAN_PROTOCOL_ADDR, protocol);
+  EEPROM.commit();
+  
+  Serial.printf("CAN protocol set to: %s\n", (protocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
+}
+
+void loadCanProtocol() {
+  uint8_t storedProtocol = EEPROM.read(EEPROM_CAN_PROTOCOL_ADDR);
+  
+  // Check if it's a valid protocol value
+  if (storedProtocol == CAN_PROTOCOL_HALTECH || storedProtocol == CAN_PROTOCOL_RUSEFI) {
+    canProtocol = storedProtocol;
+    Serial.printf("CAN protocol loaded: %s\n", (canProtocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
+  } else {
+    canProtocol = DEFAULT_CAN_PROTOCOL;
+    Serial.printf("Using default CAN protocol: %s\n", (canProtocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
+  }
+}

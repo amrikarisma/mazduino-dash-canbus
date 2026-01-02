@@ -10,6 +10,7 @@ extern TFT_eSprite spr;
 
 // Function declarations
 void setupDisplay();
+void loadBackgroundImage();
 void drawSplashScreenWithImage();
 void startUpDisplay();
 void drawDataBox(int x, int y, const char *label, const float value, uint16_t labelColor, const float valueToCompare, const int decimal, bool setup);

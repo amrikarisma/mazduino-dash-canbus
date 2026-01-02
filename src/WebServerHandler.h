@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 void handleCanSpeed();
+void handleCanProtocol();
 
 #ifdef __cplusplus
 }

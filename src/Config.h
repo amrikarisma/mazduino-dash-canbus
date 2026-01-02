@@ -26,6 +26,19 @@ extern const char *password;
 #define COMM_CAN 0
 #define COMM_SERIAL 1
 
+// CAN Protocol types
+#define CAN_PROTOCOL_HALTECH 0
+#define CAN_PROTOCOL_RUSEFI 1
+#define DEFAULT_CAN_PROTOCOL CAN_PROTOCOL_HALTECH
+
+// RusEFI CAN IDs
+#define RUSEFI_ID_0x200 0x200  // Warning Counter, Last Error, Status Bits, Current Gear, Distance
+#define RUSEFI_ID_0x201 0x201  // RPM, Ignition Timing, Injection Duty, Ignition Duty, Vehicle Speed, Flex%
+#define RUSEFI_ID_0x202 0x202  // PPS, TPS1, TPS2, Wastegate
+#define RUSEFI_ID_0x203 0x203  // MAP, Coolant Temp, Intake Temp, AUX1 Temp, AUX2 Temp, MCU Temp, Fuel Level
+#define RUSEFI_ID_0x204 0x204  // Oil Pressure, Oil Temperature, Fuel Temperature, Battery Voltage
+#define RUSEFI_ID_0x207 0x207  // Lambda 1, Lambda 2, Fuel Pressure Low, Fuel Pressure High
+
 // RPM Configuration
 #define DEFAULT_MAX_RPM 9000
 
@@ -90,6 +103,7 @@ extern const char *password;
 // Address 32+:    Display panel configurations
 
 #define EEPROM_COMM_MODE_ADDR           1
+#define EEPROM_CAN_PROTOCOL_ADDR        2
 #define EEPROM_SPLASH_SCREEN_ADDR       10
 #define EEPROM_BRIGHTNESS_ADDR          11
 #define EEPROM_BRIGHTNESS_FLAG_ADDR     12
