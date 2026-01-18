@@ -2,6 +2,7 @@
 #include "DisplayConfig.h"
 #include "Config.h"
 #include "DataTypes.h"
+#include "GlobalVariables.h"
 #include <esp32_can.h>
 #include "Arduino.h"
 
@@ -23,14 +24,20 @@ void setupCAN() {
     CAN0.watchFor(0x3E4);                      // Indicator
     Serial.printf("CAN mode aktif (Haltech). Speed: %u bps\n", getCanSpeed());
   } else if (canProtocol == CAN_PROTOCOL_RUSEFI) {
-    // RusEFI CAN IDs
+    // RusEFI CAN IDs - Standard Format
     CAN0.watchFor(RUSEFI_ID_0x200);            // Warning Counter, Status bits
     CAN0.watchFor(RUSEFI_ID_0x201);            // RPM, Ignition Timing, Duties, VSS, Flex
     CAN0.watchFor(RUSEFI_ID_0x202);            // PPS, TPS1, TPS2, Wastegate
     CAN0.watchFor(RUSEFI_ID_0x203);            // MAP, Temps, Fuel Level
     CAN0.watchFor(RUSEFI_ID_0x204);            // Oil Press/Temp, Fuel Temp, Battery
     CAN0.watchFor(RUSEFI_ID_0x207);            // Lambda 1&2, Fuel Pressures
+    
+    // RusEFI Extended IDs - Bench Test and Status
+    CAN0.watchForRange(RUSEFI_BENCH_TEST_BASE_ADDRESS, RUSEFI_BENCH_TEST_BASE_ADDRESS + 0x20);
+    CAN0.watchFor(RUSEFI_GDI4_BASE_ADDRESS);
+    
     Serial.printf("CAN mode aktif (RusEFI). Speed: %u bps\n", getCanSpeed());
+    Serial.println("[RusEFI] Listening for Standard (0x200-0x207) and Extended IDs (0x770000+, 0xBB20)");
   }
 
   isCANMode = true;  // Set communication mode indicator
@@ -55,6 +62,16 @@ void handleCANCommunication() {
   if (CAN0.available()) {
     CAN_FRAME can_message;
     if (CAN0.read(can_message)) {
+      // Debug: Show any CAN message received
+      static uint32_t lastCANDebug = 0;
+      if (millis() - lastCANDebug > 3000) { // Debug every 3 seconds
+        Serial.printf("[CAN] Message received - ID: 0x%08X, Protocol: %s, Extended: %s\n", 
+                      can_message.id, 
+                      (canProtocol == CAN_PROTOCOL_RUSEFI) ? "RusEFI" : "Haltech",
+                      can_message.extended ? "Yes" : "No");
+        lastCANDebug = millis();
+      }
+      
       // Route to appropriate protocol handler
       if (canProtocol == CAN_PROTOCOL_HALTECH) {
         handleHaltechCAN(can_message);
@@ -99,8 +116,11 @@ void handleHaltechCAN(CAN_FRAME &can_message) {
           break;
         }
         case 0x370: {
-          uint16_t vss_raw = (can_message.data.byte[0] << 8) | can_message.data.byte[1];
-          vss = vss_raw / 10.0;
+          // Only update VSS from CAN if GPS is not providing valid speed data
+          if (!gpsEnabled || !gpsDataValid) {
+            uint16_t vss_raw = (can_message.data.byte[0] << 8) | can_message.data.byte[1];
+            vss = vss_raw / 10.0;
+          }
           break;
         }
         case 0x372: {
@@ -161,8 +181,11 @@ void handleRusEFICAN(CAN_FRAME &can_message) {
       lambdaProtectAct = (can_message.data.byte[4] & 0x20) != 0;
       fan = (can_message.data.byte[4] & 0x40) != 0;
       fan2 = (can_message.data.byte[4] & 0x80) != 0;
-      currentGear = can_message.data.byte[5];
+      currentGear = can_message.data.byte[5]; // Current detected gear from RusEFI
       distanceTraveled = (can_message.data.byte[7] << 8) | can_message.data.byte[6];
+      
+      // Map RusEFI indicators to existing variables for display compatibility
+      rev = revLimAct; // Map rev limiter to existing rev variable for display
       break;
     }
     case RUSEFI_ID_0x201: {
@@ -178,8 +201,21 @@ void handleRusEFICAN(CAN_FRAME &can_message) {
       adv = ignitionTiming; // Map to existing advance variable
       injDuty = can_message.data.byte[4] * 0.5;
       ignDuty = can_message.data.byte[5] * 0.5;
-      vss = can_message.data.byte[6];
+      
+      // Only update VSS from RusEFI if GPS is not providing valid speed data
+      if (!gpsEnabled || !gpsDataValid) {
+        vss = can_message.data.byte[6];
+      }
+      
       flexPct = can_message.data.byte[7];
+      
+      // Debug output
+      static uint32_t lastDebug = 0;
+      if (millis() - lastDebug > 1000) { // Debug every 1 second
+        Serial.printf("[RusEFI] RPM: %d, TPS: %.1f, MAP: %.1f, Adv: %.1f\n", 
+                      rpm, tps, mapData, adv);
+        lastDebug = millis();
+      }
       break;
     }
     case RUSEFI_ID_0x202: {
@@ -214,6 +250,14 @@ void handleRusEFICAN(CAN_FRAME &can_message) {
       aux2Temp = can_message.data.byte[5] - 40;
       mcuTemp = can_message.data.byte[6] - 40;
       fuelLevel = can_message.data.byte[7] * 0.5;
+      
+      // Debug output for MAP and temps
+      static uint32_t lastDebugMAP = 0;
+      if (millis() - lastDebugMAP > 2000) { // Debug every 2 seconds
+        Serial.printf("[RusEFI] MAP: %.1f kPa, CLT: %d°C, IAT: %d°C\n", 
+                      mapData, clt, iat);
+        lastDebugMAP = millis();
+      }
       break;
     }
     case RUSEFI_ID_0x204: {
@@ -247,6 +291,115 @@ void handleRusEFICAN(CAN_FRAME &can_message) {
       break;
     }
     default:
+      // Handle Extended CAN IDs for RusEFI bench test and status
+      if (can_message.id >= RUSEFI_BENCH_TEST_BASE_ADDRESS && 
+          can_message.id <= RUSEFI_BENCH_TEST_BASE_ADDRESS + 0x20) {
+        handleRusEFIExtendedCAN(can_message);
+      } else if (can_message.id == RUSEFI_GDI4_BASE_ADDRESS) {
+        handleRusEFIGDI4CAN(can_message);
+      }
       break;
+  }
+}
+
+// Handler for RusEFI Extended CAN messages (Bench Test format)
+void handleRusEFIExtendedCAN(CAN_FRAME &can_message) {
+  uint32_t packet_id = can_message.id;
+  
+  switch (packet_id) {
+    case RUSEFI_ECU_CONFIG_BROADCAST: {
+      // ECU configuration broadcast - may contain engine data
+      static uint32_t lastExtDebug = 0;
+      if (millis() - lastExtDebug > 5000) {
+        Serial.printf("[RusEFI-Ext] ECU Config Broadcast received\n");
+        lastExtDebug = millis();
+      }
+      break;
+    }
+    case RUSEFI_BOARD_STATUS: {
+      // Board status information
+      static uint32_t lastBoardDebug = 0;
+      if (millis() - lastBoardDebug > 5000) {
+        Serial.printf("[RusEFI-Ext] Board Status received\n");
+        lastBoardDebug = millis();
+      }
+      break;
+    }
+    default: {
+      // Generic extended ID handler
+      static uint32_t lastGenericDebug = 0;
+      if (millis() - lastGenericDebug > 10000) {
+        Serial.printf("[RusEFI-Ext] Extended ID: 0x%08X received\n", packet_id);
+        lastGenericDebug = millis();
+      }
+      break;
+    }
+  }
+}
+
+// Handler for RusEFI GDI4 CAN messages
+void handleRusEFIGDI4CAN(CAN_FRAME &can_message) {
+  static uint32_t lastGDI4Debug = 0;
+  if (millis() - lastGDI4Debug > 5000) {
+    Serial.printf("[RusEFI-GDI4] GDI4 message received\n");
+    lastGDI4Debug = millis();
+  }
+}
+
+// Send GPS data to RusEFI ECU via CAN (CAN ID 0x770015)
+void sendGPSData() {
+  // Only send if GPS is enabled, data is valid, and using RusEFI protocol
+  if (!gpsEnabled || !gpsDataValid || canProtocol != CAN_PROTOCOL_RUSEFI || !isCANMode) {
+    return;
+  }
+  
+  static uint32_t lastGPSSend = 0;
+  uint32_t currentTime = millis();
+  
+  // Send GPS data at configured interval
+  if (currentTime - lastGPSSend < GPS_SEND_INTERVAL_MS) {
+    return;
+  }
+  
+  // Prepare GPS data frame (8 bytes)
+  CAN_FRAME gpsFrame;
+  gpsFrame.id = RUSEFI_GPS_INPUT;  // 0x770015
+  gpsFrame.extended = true;        // Extended CAN ID 
+  gpsFrame.length = 8;
+  
+  // GPS Data Format (based on common GPS CAN implementations):
+  // Bytes 0-1: Speed (km/h * 100) - 16-bit
+  // Bytes 2-3: Heading (degrees * 100) - 16-bit  
+  // Bytes 4: Number of satellites
+  // Bytes 5-7: Reserved/Status
+  
+  uint16_t speedScaled = (uint16_t)(gpsSpeed * 100);
+  uint16_t headingScaled = (uint16_t)(gpsHeading * 100);
+  
+  gpsFrame.data.byte[0] = (speedScaled >> 8) & 0xFF;    // Speed high byte
+  gpsFrame.data.byte[1] = speedScaled & 0xFF;           // Speed low byte
+  gpsFrame.data.byte[2] = (headingScaled >> 8) & 0xFF;  // Heading high byte
+  gpsFrame.data.byte[3] = headingScaled & 0xFF;         // Heading low byte
+  gpsFrame.data.byte[4] = gpsNumSats;                   // Satellite count
+  gpsFrame.data.byte[5] = gpsDataValid ? 0x01 : 0x00;   // GPS validity flag
+  gpsFrame.data.byte[6] = 0x00;                         // Reserved
+  gpsFrame.data.byte[7] = 0x00;                         // Reserved
+  
+  bool result = CAN0.sendFrame(gpsFrame);
+  
+  if (result) {
+    lastGPSSend = currentTime;
+#if ENABLE_DEBUG_MODE
+    if (debugMode) {
+      Serial.printf("[GPS] Data sent - Speed: %.1f km/h, Heading: %.1f°, Sats: %d\n", 
+                    gpsSpeed, gpsHeading, gpsNumSats);
+    }
+#endif
+  } else {
+#if ENABLE_DEBUG_MODE
+    if (debugMode) {
+      Serial.println("[GPS] Failed to send GPS data");
+    }
+#endif
   }
 }

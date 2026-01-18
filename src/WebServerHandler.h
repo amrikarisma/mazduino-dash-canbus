@@ -21,6 +21,7 @@ extern "C" {
 
 void handleCanSpeed();
 void handleCanProtocol();
+void handleRusEFIIndicators();
 
 #ifdef __cplusplus
 }

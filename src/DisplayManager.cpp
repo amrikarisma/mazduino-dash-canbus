@@ -53,7 +53,13 @@ void drawSplashScreenWithImage() {
 void drawData() {
   // Track previous screen to only clear when switching
   static uint8_t lastScreen = 255; // Initialize to invalid screen to force first draw
+  static uint32_t startupTime = millis();
   bool screenChanged = (lastScreen != currentScreen);
+  
+  // Prevent immediate redraw after startup (give 2 seconds grace period)
+  if (displayInitialized && (millis() - startupTime < 2000) && !screenChanged) {
+    return;
+  }
   
   // Skip if display was just initialized in startUpDisplay to prevent double loading
   if (!displayInitialized && screenChanged) {
@@ -92,6 +98,8 @@ void drawData() {
 }
 
 void startUpDisplay() {
+  Serial.println("[Display] Starting initial display setup...");
+  
   // Initialize display settings and load background once
   display.loadFont(AA_FONT_SMALL);
   spr.setColorDepth(16);
@@ -103,21 +111,25 @@ void startUpDisplay() {
   // Switch between screens based on current screen with initial load
   switch (currentScreen) {
     case SCREEN_MAIN:
+      Serial.println("[Display] Drawing initial MAIN screen...");
       // Use configurable display system
       drawConfigurableData(true);
       break;
     case SCREEN_CONFIG:
+      Serial.println("[Display] Drawing initial CONFIG screen...");
       configScreen.draw(true);
       break;
     case SCREEN_BENCH:
+      Serial.println("[Display] Drawing initial BENCH screen...");
       benchScreen.draw(true);
       break;
     default:
+      Serial.println("[Display] Drawing default MAIN screen...");
       // Use configurable display system
       drawConfigurableData(true);
       break;
   }
   
-  // Mark display as initialized
-  displayInitialized = true;
+  displayInitialized = true; // Set flag to prevent immediate redraw
+  Serial.println("[Display] Initial display setup complete");
 }

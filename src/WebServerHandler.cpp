@@ -6,6 +6,7 @@
 #include "BacklightControl.h"
 #include "Comms.h"
 #include "OTAUpdater.h"
+#include "GPSHandler.h"
 #include "version.h"
 #include <WiFi.h>
 #include <WebServer.h>
@@ -433,6 +434,9 @@ const char *uploadPage PROGMEM = R"rawliteral(
       function updatePanelConfig(position) {
         const select = document.getElementById('panel' + position);
         const dataSource = select.value;
+        
+        // Mark as pending change
+        markPendingChange('panel' + position, dataSource);
         
         fetch('/configPanel', {
           method: 'POST',
@@ -913,6 +917,74 @@ const char *uploadPage PROGMEM = R"rawliteral(
         updatePendingStatus(); // Initialize pending status
         initializeNavigation(); // Initialize navigation system
       };
+      
+      // RusEFI Status Management
+      let rusEFIAutoRefresh = false;
+      let rusEFIRefreshInterval;
+      
+      function refreshRusEFIStatus() {
+        fetch('/rusefi/indicators')
+          .then(response => response.json())
+          .then(data => {
+            updateRusEFIStatusDisplay(data);
+          })
+          .catch(error => {
+            console.log('RusEFI status fetch failed:', error);
+            updateRusEFIStatusDisplay(null);
+          });
+      }
+      
+      function updateRusEFIStatusDisplay(data) {
+        const getStatusColor = (active) => active ? '#4CAF50' : '#FF6B6B';
+        const getStatusText = (active) => active ? 'ACTIVE' : 'INACTIVE';
+        
+        if (!data) {
+          // Error state
+          document.getElementById('revLimStatus').innerHTML = '<span style="color: #FFA726;">ERROR</span>';
+          document.getElementById('mainRelayStatus').innerHTML = '<span style="color: #FFA726;">ERROR</span>';
+          document.getElementById('celStatus').innerHTML = '<span style="color: #FFA726;">ERROR</span>';
+          document.getElementById('fuelPumpStatus').innerHTML = '<span style="color: #FFA726;">ERROR</span>';
+          document.getElementById('egoHeatStatus').innerHTML = '<span style="color: #FFA726;">ERROR</span>';
+          document.getElementById('lambdaProtectStatus').innerHTML = '<span style="color: #FFA726;">ERROR</span>';
+          document.getElementById('currentGearStatus').innerHTML = '<span style="color: #FFA726;">ERROR</span>';
+          return;
+        }
+        
+        // Update status indicators
+        document.getElementById('revLimStatus').innerHTML = 
+          `<span style="color: ${getStatusColor(data.revLimAct)}">${getStatusText(data.revLimAct)}</span>`;
+        document.getElementById('mainRelayStatus').innerHTML = 
+          `<span style="color: ${getStatusColor(data.mainRelayAct)}">${getStatusText(data.mainRelayAct)}</span>`;
+        document.getElementById('celStatus').innerHTML = 
+          `<span style="color: ${getStatusColor(data.celAct)}">${getStatusText(data.celAct)}</span>`;
+        document.getElementById('fuelPumpStatus').innerHTML = 
+          `<span style="color: ${getStatusColor(data.fuelPumpAct)}">${getStatusText(data.fuelPumpAct)}</span>`;
+        document.getElementById('egoHeatStatus').innerHTML = 
+          `<span style="color: ${getStatusColor(data.egoHeatAct)}">${getStatusText(data.egoHeatAct)}</span>`;
+        document.getElementById('lambdaProtectStatus').innerHTML = 
+          `<span style="color: ${getStatusColor(data.lambdaProtectAct)}">${getStatusText(data.lambdaProtectAct)}</span>`;
+        
+        // Update current gear
+        const gearDisplay = data.currentGear === 0 ? 'N' : data.currentGear.toString();
+        document.getElementById('currentGearStatus').innerHTML = 
+          `<span style="color: #4CAF50;">${gearDisplay}</span>`;
+      }
+      
+      function toggleRusEFIAutoRefresh() {
+        rusEFIAutoRefresh = !rusEFIAutoRefresh;
+        const statusSpan = document.getElementById('autoRefreshStatus');
+        
+        if (rusEFIAutoRefresh) {
+          statusSpan.textContent = 'ON';
+          rusEFIRefreshInterval = setInterval(refreshRusEFIStatus, 2000);
+          refreshRusEFIStatus(); // Initial fetch
+        } else {
+          statusSpan.textContent = 'OFF';
+          if (rusEFIRefreshInterval) {
+            clearInterval(rusEFIRefreshInterval);
+          }
+        }
+      }
     </script>
   </head>
   <body>
@@ -926,6 +998,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
         <button class="nav-item" onclick="showSection('brightnessSection')">Brightness</button>
         <button class="nav-item" onclick="showSection('displaySection')">Display</button>
         <button class="nav-item" onclick="showSection('debugSection')">Debug</button>
+        <button class="nav-item" onclick="showSection('rusEFISection')">RusEFI Status</button>
         <button class="nav-item" onclick="showSection('commSection')">Communication</button>
         <button class="nav-item" onclick="showSection('updateSection')">Update</button>
         <button class="nav-item" onclick="showSection('infoSection')">Info</button>
@@ -1029,6 +1102,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
           <div class="config-item">
@@ -1046,6 +1120,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
           <div class="config-item">
@@ -1063,6 +1138,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
           <div class="config-item">
@@ -1080,6 +1156,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
           <div class="config-item">
@@ -1097,6 +1174,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
           <div class="config-item">
@@ -1114,6 +1192,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
           <div class="config-item">
@@ -1131,6 +1210,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
           <div class="config-item">
@@ -1148,6 +1228,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
               <option value="8">RPM</option>
               <option value="9">FP</option>
               <option value="10">VSS</option>
+              <option value="15">AC Temp</option>
             </select>
           </div>
         </div>
@@ -1213,6 +1294,50 @@ const char *uploadPage PROGMEM = R"rawliteral(
             <li><strong>Redline:</strong> Simulates high RPM operation (6000+ RPM)</li>
           </ul>
           When simulator is active, "SIM" indicator appears on display. Use these modes to test the display without connecting to real ECU.
+        </p>
+      </div>
+      
+      <div id="rusEFISection" class="section content-section">
+        <h2>RusEFI Status Indicators</h2>
+        <p style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">
+          Real-time status indicators from RusEFI ECU (requires RusEFI CAN protocol active)
+        </p>
+        
+        <div id="rusEFIStatus" class="status">
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+            <div>
+              <strong>Engine Control:</strong><br>
+              Rev Limiter: <span id="revLimStatus" style="font-weight: bold;">-</span><br>
+              Main Relay: <span id="mainRelayStatus" style="font-weight: bold;">-</span><br>
+              CEL (Check Engine): <span id="celStatus" style="font-weight: bold;">-</span><br>
+            </div>
+            <div>
+              <strong>System Status:</strong><br>
+              Fuel Pump: <span id="fuelPumpStatus" style="font-weight: bold;">-</span><br>
+              EGO Heater: <span id="egoHeatStatus" style="font-weight: bold;">-</span><br>
+              Lambda Protection: <span id="lambdaProtectStatus" style="font-weight: bold;">-</span><br>
+            </div>
+          </div>
+          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #555;">
+            <strong>Current Gear:</strong> <span id="currentGearStatus" style="font-weight: bold; font-size: 18px;">-</span>
+          </div>
+        </div>
+        
+        <div class="grid" style="margin-top: 15px;">
+          <button class="btn" onclick="refreshRusEFIStatus()">
+            Refresh Status
+          </button>
+          <button class="btn" onclick="toggleRusEFIAutoRefresh()">
+            Auto Refresh: <span id="autoRefreshStatus">OFF</span>
+          </button>
+        </div>
+        
+        <p style="font-size: 12px; opacity: 0.7; margin-top: 15px;">
+          <strong>Status Colors:</strong> 
+          <span style="color: #4CAF50;">● ACTIVE/ON</span> | 
+          <span style="color: #FF6B6B;">● INACTIVE/OFF</span> | 
+          <span style="color: #FFA726;">● ERROR/FAULT</span><br>
+          Auto-refresh updates every 2 seconds when enabled. Manual refresh fetches latest data immediately.
         </p>
       </div>
       
@@ -1492,8 +1617,9 @@ void startWebServer()
     if (savedSSID.length() > 0) {
       Serial.printf("Attempting to connect to router: %s\n", savedSSID.c_str());
       Serial.println("WiFi connection timeout: 20 seconds");
+      Serial.println("Note: Using STA+AP mode to maintain ESP-NOW compatibility");
       
-      WiFi.mode(WIFI_MODE_STA);
+      WiFi.mode(WIFI_AP_STA);  // Use AP+STA mode for ESP-NOW compatibility
       WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
       
       // Wait up to 20 seconds for connection with better feedback
@@ -1536,9 +1662,9 @@ void startWebServer()
   }
   
   if (!stationMode) {
-    // Start in Access Point mode
-    Serial.println("Starting Access Point mode...");
-    WiFi.mode(WIFI_MODE_AP);
+    // Start in Access Point mode (but maintain STA for ESP-NOW)
+    Serial.println("Starting Access Point mode (with STA for ESP-NOW)...");
+    WiFi.mode(WIFI_AP_STA);  // Use AP+STA mode for ESP-NOW compatibility
     
     // Configure AP with better settings
     WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
@@ -1689,7 +1815,33 @@ void startWebServer()
               json += "\"simulatorMode\":0,";
 #endif
               json += "\"uptime\":" + String(millis() / 1000) + ",";
-              json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + "";
+              json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
+              
+              // WiFi information
+              json += "\"wifiStatus\":\"" + String(WiFi.status() == WL_CONNECTED ? "Connected" : "AP Mode") + "\",";
+              
+              if (WiFi.getMode() == WIFI_MODE_APSTA || WiFi.getMode() == WIFI_MODE_STA) {
+                if (WiFi.status() == WL_CONNECTED) {
+                  json += "\"wifiMode\":\"Station (Connected)\",";
+                  json += "\"ipAddress\":\"" + WiFi.localIP().toString() + "\",";
+                  json += "\"ssid\":\"" + WiFi.SSID() + "\",";
+                  json += "\"rssi\":" + String(WiFi.RSSI()) + ",";
+                  json += "\"clientCount\":0";
+                } else {
+                  json += "\"wifiMode\":\"Access Point\",";
+                  json += "\"ipAddress\":\"" + WiFi.softAPIP().toString() + "\",";
+                  json += "\"ssid\":\"MAZDUINO_Display\",";
+                  json += "\"rssi\":0,";
+                  json += "\"clientCount\":" + String(WiFi.softAPgetStationNum());
+                }
+              } else {
+                json += "\"wifiMode\":\"Access Point\",";
+                json += "\"ipAddress\":\"" + WiFi.softAPIP().toString() + "\",";
+                json += "\"ssid\":\"MAZDUINO_Display\",";
+                json += "\"rssi\":0,";
+                json += "\"clientCount\":" + String(WiFi.softAPgetStationNum());
+              }
+              
               json += "}";
               server.send(200, "application/json", json);
             });
@@ -1700,11 +1852,16 @@ void startWebServer()
               int position = server.arg("position").toInt();
               String dataSourceStr = server.arg("dataSource");
               
+              Serial.printf("[WebServer] ConfigPanel: Position=%d, DataSource=%s\n", position, dataSourceStr.c_str());
+              
               if (position >= 0 && position < 8) {
                 if (dataSourceStr == "disabled") {
                   currentDisplayConfig.panels[position].enabled = false;
+                  Serial.printf("[WebServer] Panel %d disabled\n", position);
                 } else {
                   int dataSource = dataSourceStr.toInt();
+                  Serial.printf("[WebServer] Panel %d: Setting dataSource to %d\n", position, dataSource);
+                  
                   if (dataSource >= 0 && dataSource < DATA_SOURCE_COUNT) {
                     currentDisplayConfig.panels[position].enabled = true;
                     currentDisplayConfig.panels[position].dataSource = dataSource;
@@ -1714,27 +1871,40 @@ void startWebServer()
                     switch (dataSource) {
                       case DATA_SOURCE_AFR:
                       case DATA_SOURCE_VOLTAGE:
+                      case DATA_SOURCE_AC_TEMP:
                         currentDisplayConfig.panels[position].dataType = DATA_TYPE_FLOAT;
                         currentDisplayConfig.panels[position].decimals = 1;
+                        Serial.printf("[WebServer] Panel %d: Set as FLOAT with 1 decimal\n", position);
                         break;
                       case DATA_SOURCE_IAT:
                       case DATA_SOURCE_COOLANT:
                         currentDisplayConfig.panels[position].dataType = DATA_TYPE_UINT;
                         currentDisplayConfig.panels[position].decimals = 0;
+                        Serial.printf("[WebServer] Panel %d: Set as UINT with 0 decimals\n", position);
                         break;
                       default:
                         currentDisplayConfig.panels[position].dataType = DATA_TYPE_INT;
                         currentDisplayConfig.panels[position].decimals = 0;
+                        Serial.printf("[WebServer] Panel %d: Set as INT with 0 decimals\n", position);
                         break;
                     }
                     
                     // Copy label from data source
                     strcpy(currentDisplayConfig.panels[position].label, getDataSourceName(dataSource));
+                    Serial.printf("[WebServer] Panel %d: Label set to '%s'\n", position, currentDisplayConfig.panels[position].label);
+                  } else {
+                    Serial.printf("[WebServer] ERROR: Invalid dataSource %d (max: %d)\n", dataSource, DATA_SOURCE_COUNT-1);
                   }
                 }
+              } else {
+                Serial.printf("[WebServer] ERROR: Invalid position %d\n", position);
               }
               
-              server.send(200, "text/plain", "Panel configured");
+              // Auto-save configuration after panel change
+              saveDisplayConfig();
+              Serial.println("[WebServer] Configuration auto-saved after panel change");
+              
+              server.send(200, "text/plain", "Panel configured and saved");
             });
   
   server.on("/configIndicator", HTTP_POST, [&]()
@@ -1747,9 +1917,13 @@ void startWebServer()
                 currentDisplayConfig.indicators[indicator].indicator = indicator;
                 currentDisplayConfig.indicators[indicator].position = indicator;
                 strcpy(currentDisplayConfig.indicators[indicator].label, getIndicatorName(indicator));
+                
+                // Auto-save configuration after indicator change
+                saveDisplayConfig();
+                Serial.println("[WebServer] Configuration auto-saved after indicator change");
               }
               
-              server.send(200, "text/plain", "Indicator configured");
+              server.send(200, "text/plain", "Indicator configured and saved");
             });
   
   server.on("/saveDisplayConfig", HTTP_POST, [&]()
@@ -1797,6 +1971,7 @@ void startWebServer()
   server.on("/canspeed", HTTP_POST, handleCanSpeed);
   server.on("/canprotocol", HTTP_GET, handleCanProtocol);
   server.on("/canprotocol", HTTP_POST, handleCanProtocol);
+  server.on("/rusefi/indicators", HTTP_GET, handleRusEFIIndicators);
   
   // Splash screen configuration handler
   server.on("/splash", HTTP_GET, [&]() {
@@ -2291,6 +2466,31 @@ void handleCanProtocol() {
   } else {
     server.send(405, "text/plain", "Method Not Allowed");
   }
+}
+
+void handleRusEFIIndicators() {
+  // Only provide indicators if RusEFI protocol is active
+  if (canProtocol != CAN_PROTOCOL_RUSEFI) {
+    server.send(400, "application/json", "{\"error\":\"RusEFI protocol not active\"}");
+    return;
+  }
+  
+  // Build JSON response with RusEFI indicators
+  String json = "{";
+  json += "\"revLimAct\":" + String(revLimAct ? "true" : "false") + ",";
+  json += "\"mainRelayAct\":" + String(mainRelayAct ? "true" : "false") + ",";
+  json += "\"fuelPumpAct\":" + String(fuelPumpAct ? "true" : "false") + ",";
+  json += "\"celAct\":" + String(celAct ? "true" : "false") + ",";
+  json += "\"egoHeatAct\":" + String(egoHeatAct ? "true" : "false") + ",";
+  json += "\"lambdaProtectAct\":" + String(lambdaProtectAct ? "true" : "false") + ",";
+  json += "\"fan\":" + String(fan ? "true" : "false") + ",";
+  json += "\"fan2\":" + String(fan2 ? "true" : "false") + ",";
+  json += "\"warningCounter\":" + String(warningCounter) + ",";
+  json += "\"lastError\":" + String(lastError) + ",";
+  json += "\"currentGear\":" + String(currentGear);
+  json += "}";
+  
+  server.send(200, "application/json", json);
 }
 
 void handleWebServerClients()

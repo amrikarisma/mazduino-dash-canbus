@@ -24,6 +24,11 @@ enum DataSource {
   DATA_SOURCE_RPM,
   DATA_SOURCE_FP,
   DATA_SOURCE_VSS,
+  DATA_SOURCE_GPS_SPEED,      // GPS speed in km/h
+  DATA_SOURCE_GPS_HEADING,    // GPS heading in degrees
+  DATA_SOURCE_GPS_ALTITUDE,   // GPS altitude in meters
+  DATA_SOURCE_GPS_SATELLITES, // Number of GPS satellites
+  DATA_SOURCE_AC_TEMP,        // AC Controller temperature
   DATA_SOURCE_COUNT
 };
 
@@ -37,6 +42,7 @@ enum IndicatorSource {
   INDICATOR_LCH,
   INDICATOR_AC,
   INDICATOR_DFCO,
+  INDICATOR_GPS,          // GPS status indicator
   INDICATOR_COUNT
 };
 
@@ -85,6 +91,8 @@ bool getIndicatorValue(uint8_t indicator);
 const char* getDataSourceName(uint8_t dataSource);
 const char* getIndicatorName(uint8_t indicator);
 uint16_t getDataSourceColor(uint8_t dataSource, float value);
+// GPS speed smoothing function
+float getSmoothGpsSpeed();
 // New CAN speed accessors
 uint32_t getCanSpeed();
 void setCanSpeed(uint32_t speed);

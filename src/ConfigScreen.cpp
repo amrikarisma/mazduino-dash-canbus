@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "DisplayConfig.h"
 #include "BacklightControl.h"
+#include "GPSHandler.h"
 #include "Roboto16.h"
 #include "RobotoBold32.h"
 #include <TFT_eSPI.h>
@@ -50,6 +51,9 @@ void ConfigScreen::draw(bool forceRedraw) {
     // Draw WiFi status
     drawWiFiStatus(forceRedraw);
     
+    // Draw GPS status
+    drawGPSStatus(forceRedraw);
+    
     // Draw configuration options
     drawConfigOptions(forceRedraw);
     
@@ -82,15 +86,16 @@ bool ConfigScreen::handleTouch(uint16_t x, uint16_t y) {
         {170, 50, 300, 30, 0, "Status"},
         {170, 85, 300, 30, 1, "CommMode"},
         {170, 120, 300, 30, 2, "WiFi"},
-        {170, 155, 300, 30, 3, "Display"},
-        {170, 190, 300, 30, 4, "Brightness"},
-        {170, 225, 300, 30, 5, "Debug"},
-        {170, 260, 300, 30, 6, "Info"}
+        {170, 155, 300, 30, 3, "GPS"},
+        {170, 190, 300, 30, 4, "Display"},
+        {170, 225, 300, 30, 5, "Brightness"},
+        {170, 260, 300, 30, 6, "Debug"},
+        {170, 295, 300, 30, 7, "Info"}
     };
     
     // Check if touch is in any valid area
     int touchedSection = -1;
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
         if (x >= areas[i].x && x <= (areas[i].x + areas[i].w) &&
             y >= areas[i].y && y <= (areas[i].y + areas[i].h)) {
             touchedSection = areas[i].sectionId;
@@ -100,7 +105,7 @@ bool ConfigScreen::handleTouch(uint16_t x, uint16_t y) {
     
     if (touchedSection != -1) {
         // Only allow press and hold for configurable sections
-        if (touchedSection == 1 || touchedSection == 4 || touchedSection == 5) { // CommMode, Brightness, Debug
+        if (touchedSection == 1 || touchedSection == 3 || touchedSection == 5 || touchedSection == 6) { // CommMode, GPS, Brightness, Debug
             if (!isPressing) {
                 // Start press and hold
                 isPressing = true;
@@ -186,10 +191,13 @@ void ConfigScreen::handleSectionTouch(int sectionId) {
         case 1: // Communication Mode
             toggleCommMode();
             break;
-        case 4: // Brightness
+        case 3: // GPS Mode
+            toggleGPSMode();
+            break;
+        case 5: // Brightness (shifted due to GPS addition)
             adjustBrightness();
             break;
-        case 5: // Debug Mode
+        case 6: // Debug Mode (shifted due to GPS addition)
             toggleDebugMode();
             break;
         default:
@@ -315,14 +323,14 @@ void ConfigScreen::drawWiFiStatus(bool forceRedraw) {
         }
         
         if (forceRedraw || wifiStatus != lastWiFiStatus) {
-            // Clear WiFi status area
-            display.fillRect(10, 295, display.width() - 20, 25, TFT_BLACK);
+            // Clear WiFi status area (moved up to make room for GPS)
+            display.fillRect(10, 330, display.width() - 20, 25, TFT_BLACK);
             
             // Draw WiFi status
             display.loadFont(AA_FONT_SMALL);
             display.setTextColor(statusColor, TFT_BLACK);
             display.setTextDatum(TL_DATUM);
-            display.drawString(wifiStatus, 10, 300);
+            display.drawString(wifiStatus, 10, 335);
             
             lastWiFiStatus = wifiStatus;
         }
@@ -337,10 +345,11 @@ void ConfigScreen::drawConfigOptions(bool forceRedraw) {
         drawStatusSection(50, selectedSection == 0);
         drawCommModeSection(85, selectedSection == 1);
         drawWiFiSection(120, selectedSection == 2);
-        drawDisplaySection(155, selectedSection == 3);
-        drawBrightnessSection(190, selectedSection == 4);
-        drawDebugSection(225, selectedSection == 5);
-        drawInfoSection(260, selectedSection == 6);
+        drawGPSSection(155, selectedSection == 3);
+        drawDisplaySection(190, selectedSection == 4);
+        drawBrightnessSection(225, selectedSection == 5);
+        drawDebugSection(260, selectedSection == 6);
+        drawInfoSection(295, selectedSection == 7);
     }
 }
 
@@ -524,4 +533,85 @@ void ConfigScreen::drawPressProgress() {
     }
     
     display.drawString(progressText, 240, progressY + 8);
+}
+
+void ConfigScreen::drawGPSStatus(bool forceRedraw) {
+    static String lastGPSStatus = "";
+    static uint32_t lastGPSUpdate = 0;
+    
+    // Update GPS status every 2 seconds or on force redraw
+    if (forceRedraw || (millis() - lastGPSUpdate > 2000)) {
+        String gpsStatus;
+        uint16_t statusColor;
+        
+        if (gpsEnabled) {
+            if (gpsDataValid) {
+                gpsStatus = "GPS: Connected (" + String(gpsNumSats) + " sats, " + String(gpsSpeed, 1) + " km/h)";
+                statusColor = TFT_GREEN;
+            } else {
+                gpsStatus = "GPS: Enabled (No valid data)";
+                statusColor = TFT_ORANGE;
+            }
+        } else {
+            gpsStatus = "GPS: Disabled (GT-U7 on GPIO25/26)";
+            statusColor = TFT_RED;
+        }
+        
+        if (forceRedraw || gpsStatus != lastGPSStatus) {
+            // Clear GPS status area (positioned between WiFi and bottom)
+            display.fillRect(10, 275, display.width() - 20, 25, TFT_BLACK);
+            
+            // Draw GPS status
+            display.loadFont(AA_FONT_SMALL);
+            display.setTextColor(statusColor, TFT_BLACK);
+            display.setTextDatum(TL_DATUM);
+            display.drawString(gpsStatus, 10, 280);
+            
+            lastGPSStatus = gpsStatus;
+        }
+        
+        lastGPSUpdate = millis();
+    }
+}
+
+void ConfigScreen::drawGPSSection(int y, bool selected) {
+    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    display.fillRect(10, y, 460, 30, bgColor);
+    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    
+    display.loadFont(AA_FONT_SMALL);
+    display.setTextColor(textColor, bgColor);
+    display.setTextDatum(TL_DATUM);
+    display.drawString("GPS Module (GT-U7)", 20, y + 8);
+    
+    // Show GPS status
+    String gpsInfo;
+    if (gpsEnabled) {
+        if (gpsDataValid) {
+            gpsInfo = "ON (" + String(gpsNumSats) + " sats)";
+        } else {
+            gpsInfo = "ON (No data)";
+        }
+    } else {
+        gpsInfo = "OFF";
+    }
+    
+    display.setTextDatum(TR_DATUM);
+    display.drawString(gpsInfo, 460, y + 8);
+}
+
+void ConfigScreen::toggleGPSMode() {
+    static uint32_t lastToggle = 0;
+    if (millis() - lastToggle < 1000) return; // Debounce
+    lastToggle = millis();
+    
+    gpsEnabled = !gpsEnabled;
+    gpsHandler.enableGPS(gpsEnabled);
+    
+    Serial.printf("[Config] GPS %s\n", gpsEnabled ? "Enabled" : "Disabled");
+    
+    // Force redraw to show updated status
+    draw(true);
 }

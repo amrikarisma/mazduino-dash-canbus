@@ -4,6 +4,7 @@
 #include "DisplayConfig.h"
 #include "drawing_utils.h"
 #include "SplashScreen.h"
+#include "ESPNowHandler.h"
 #include "Roboto16.h"
 #include "Roboto21.h"
 #include "RobotoBold32.h"
@@ -93,17 +94,22 @@ void drawConfigurableData(bool setup) {
     
     // Draw Gear Position in top left corner
     static int lastGear = -1;
-    int currentGear = (vss > 0 && rpm > 800) ? ((rpm / 1000) + (vss / 40)) % 6 + 1 : 0; // Simple gear calculation
-    if (setup || lastGear != currentGear) {
+    // Use global currentGear from RusEFI CAN data if available, otherwise calculate
+    int displayGear = currentGear; // Global currentGear from RusEFI
+    if (currentGear == 0) {
+      // Fallback to simple gear calculation if no CAN data
+      displayGear = (vss > 0 && rpm > 800) ? ((rpm / 1000) + (vss / 40)) % 6 + 1 : 0;
+    }
+    if (setup || lastGear != displayGear) {
       spr.createSprite(60, 60);
       spr.fillSprite(TFT_BLACK);
       spr.setTextDatum(MC_DATUM);
       spr.loadFont(Roboto48);
       spr.setTextColor(TFT_CYAN, TFT_BLACK, true);
-      if (currentGear == 0) {
+      if (displayGear == 0) {
         spr.drawString("N", 30, 30);
       } else {
-        spr.drawNumber(currentGear, 30, 30);
+        spr.drawNumber(displayGear, 30, 30);
       }
       spr.pushSprite(10, 10);
       spr.deleteSprite();
@@ -118,16 +124,16 @@ void drawConfigurableData(bool setup) {
       spr.pushSprite(10, 65);
       spr.deleteSprite();
       
-      lastGear = currentGear;
+      lastGear = displayGear;
     }
     
     // Draw RPM value with proper positioning
-    spr.createSprite(80, 35);
+    spr.createSprite(80, 40);
     spr.fillSprite(TFT_BLACK);
     spr.setTextDatum(MC_DATUM);
-    spr.loadFont(Roboto21);
+    spr.loadFont(RobotoBold32);
     spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
-    spr.drawNumber(rpm, 40, 17); // Centered in sprite
+    spr.drawNumber(rpm, 40, 20); // Centered in sprite
     spr.pushSprite(390, 65);
     spr.deleteSprite();
     
@@ -137,9 +143,8 @@ void drawConfigurableData(bool setup) {
     spr.setTextDatum(MC_DATUM);
     spr.loadFont(Roboto48);
     spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
-    // spr.drawNumber(vss, 60, 27); // Centered in sprite
-    spr.drawNumber(233, 50, 25); // Centered in sprite
-    spr.pushSprite(250, 115);
+    spr.drawNumber(vss, 50, 25); // Centered in sprite
+    spr.pushSprite(190, 115);
     spr.deleteSprite();
     
     // Draw "kph" unit label aligned with VSS
@@ -149,7 +154,7 @@ void drawConfigurableData(bool setup) {
     spr.loadFont(AA_FONT_SMALL);
     spr.setTextColor(TFT_WHITE, TFT_BLACK, true);
     spr.drawString("kph", 25, 12); // Centered in sprite
-    spr.pushSprite(350, 115);
+    spr.pushSprite(280, 120);
     spr.deleteSprite();
     
     lastRpm = rpm;

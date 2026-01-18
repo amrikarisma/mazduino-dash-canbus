@@ -8,7 +8,7 @@ class TFT_eSPI;
 
 /**
  * BenchScreen - Handles the bench test display
- * Shows test controls, data logging, and diagnostic information
+ * Shows ignition, injector, and engine start/stop test controls
  */
 class BenchScreen {
 public:
@@ -40,24 +40,15 @@ public:
     
 private:
     // Helper functions
-    void drawTestControls(bool forceRedraw);
-    void drawDataLogger(bool forceRedraw);
-    void drawDiagnostics(bool forceRedraw);
+    void drawIgnitionButtons(bool forceRedraw);
+    void drawInjectorButtons(bool forceRedraw);
+    void drawEngineControlButtons(bool forceRedraw);
     void drawScreenIndicator(bool forceRedraw);
     
-    // Test control buttons
-    void drawStartTestButton(bool selected = false);
-    void drawStopTestButton(bool selected = false);
-    void drawResetButton(bool selected = false);
-    void drawDataLogButton(bool selected = false);
-    
-    // Test modes
-    void drawTestModeSelector(bool forceRedraw);
-    void drawCurrentTestStatus(bool forceRedraw);
-    
-    // Data display
-    void drawRealTimeData(bool forceRedraw);
-    void drawTestResults(bool forceRedraw);
+    // Bench test functions
+    bool benchIgnition(uint8_t cylinder);
+    bool benchInjector(uint8_t cylinder);
+    bool startStopEngine();
     
     // Static variables for update tracking
     static bool initialized;
@@ -67,6 +58,8 @@ private:
     static int testMode;
     static uint32_t testStartTime;
     static uint32_t testDuration;
+    static int selectedCylinder;
+    static bool testResult;
 };
 
 // Test modes

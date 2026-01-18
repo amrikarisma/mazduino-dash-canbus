@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <TFT_eSPI.h>
+#include <math.h>
 
 // Include all our modular headers
 #include "Config.h"
@@ -15,6 +16,8 @@
 #include "WebServerHandler.h"
 #include "GlobalVariables.h"
 #include "TouchHandler.h"
+#include "GPSHandler.h"
+#include "ESPNowHandler.h"
 
 // Include legacy headers for compatibility
 #include "Comms.h"
@@ -97,6 +100,21 @@ void handleSerialCommands()
         Serial.println("Starting touch calibration...");
         touchHandler.calibrate();
         Serial.println("Touch calibration completed!");
+        break;
+      case 'x':
+      case 'X':
+        // Touch test - read raw touch data
+        Serial.println("=== TOUCH TEST ===");
+        Serial.println("Touch the screen for next 10 seconds...");
+        for (int i = 0; i < 100; i++) {
+          TouchEvent touch = touchHandler.readTouch();
+          if (touch.isValid) {
+            Serial.printf("Touch %d: (%d,%d) pressed=%s\\n", 
+                         i, touch.x, touch.y, touch.pressed ? "YES" : "NO");
+          }
+          delay(100);
+        }
+        Serial.println("Touch test completed!");
         break;
 #endif
       case 'h':
@@ -340,6 +358,16 @@ void setup()
   // Initialize web server setup (will start after 15 seconds)
   setupWebServer();
 
+  // Initialize GPS handler for GT-U7
+  Serial.println("Initializing GPS handler (GT-U7)...");
+  gpsHandler.begin();
+  Serial.println("GPS handler initialized");
+
+  // Initialize ESP-NOW for AC Controller communication
+  Serial.println("Initializing ESP-NOW for AC Controller...");
+  initESPNow();
+  Serial.println("ESP-NOW initialized for AC data reception");
+
 #if ENABLE_SIMULATOR
   // Initialize simulator
   initializeSimulator();
@@ -363,7 +391,7 @@ void setup()
   Serial.printf("Initial debug values - CPU: %.1f%%, FPS: %.1f\n", cpuUsage, fps);
   Serial.println("============================");
 #endif
-
+  Serial.println(WiFi.macAddress());
   EEPROM.write(0, 1);
   delay(500);
   startUpDisplay();
@@ -382,6 +410,11 @@ void loop()
   static bool webServerStarted = false;
   if (!webServerStarted && (millis() - startupTime >= 15000)) {
     startWebServer();
+    
+    // Re-initialize ESP-NOW after web server starts (WiFi mode might have changed)
+    delay(2000); // Give webserver time to fully initialize
+    reinitESPNowAfterWiFi();
+    
     webServerStarted = true;
   }
 
@@ -416,6 +449,51 @@ void loop()
 #if ENABLE_SIMULATOR
   if (getSimulatorMode() == SIMULATOR_MODE_OFF) {
 #endif
+    // Update GPS data from GT-U7 module
+    gpsHandler.update();
+    
+    // Update AC controller data from ESP-NOW
+    updateACControllerData();
+    
+    // Simple GPS status check
+    static uint32_t lastGPSStatusDebug = 0;
+    if (millis() - lastGPSStatusDebug > 10000) {
+      if (gpsEnabled) {
+        Serial.printf("[GPS] %s | Speed: %.1f km/h\n", 
+                      gpsDataValid ? "CONNECTED" : "SEARCHING", gpsSpeed);
+      }
+      // Print detailed AC status
+      if (acControllerEnabled) {
+        if (acDataReceived) {
+          Serial.printf("[AC] %.1f°C\n", acCurrentTemp);
+        } else {
+          Serial.println("[AC] No data");
+        }
+      }
+      lastGPSStatusDebug = millis();
+    }
+    
+    // Update VSS with GPS speed if GPS data is valid
+    if (gpsEnabled && gpsDataValid) {
+      // Use GPS speed directly without rounding up
+      vss = (unsigned int)gpsSpeed; // Simple truncation instead of ceiling
+      Serial.printf("[GPS] VSS set to %d (GPS speed: %.1f km/h)\n", vss, gpsSpeed);
+      
+      #if ENABLE_DEBUG_MODE
+      if (debugMode) {
+        static uint32_t lastGPSVSSDebug = 0;
+        if (millis() - lastGPSVSSDebug > 5000) {
+          Serial.printf("[GPS] Using GPS speed for VSS: %.1f km/h\n", gpsSpeed);
+          lastGPSVSSDebug = millis();
+        }
+      }
+      #endif
+    }
+    
+    // Send GPS data to RusEFI ECU if enabled and valid
+    if (gpsEnabled && isCANMode && canProtocol == CAN_PROTOCOL_RUSEFI) {
+      sendGPSData();
+    }
 
 #if ENABLE_SIMULATOR
   }

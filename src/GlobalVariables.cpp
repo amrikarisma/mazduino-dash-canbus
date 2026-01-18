@@ -67,3 +67,20 @@ uint32_t loopStartTime = 0;
 
 // Screen management
 uint8_t currentScreen = SCREEN_MAIN;
+
+// GPS data variables
+bool gpsEnabled = false;
+bool gpsDataValid = false;
+float gpsSpeed = 0.0;      // Vehicle speed from GPS in km/h
+double gpsLatitude = 0.0;  // GPS latitude in degrees
+double gpsLongitude = 0.0; // GPS longitude in degrees
+float gpsHeading = 0.0;    // GPS heading in degrees (0-359)
+float gpsAltitude = 0.0;   // GPS altitude in meters
+uint8_t gpsNumSats = 0;    // Number of GPS satellites
+uint32_t gpsLastUpdate = 0; // Last GPS data update timestamp
+
+// AC Controller data variables (ESP-NOW)
+bool acControllerEnabled = true;  // Default enabled
+bool acDataReceived = false;
+float acCurrentTemp = 0.0;
+uint32_t acLastUpdate = 0;

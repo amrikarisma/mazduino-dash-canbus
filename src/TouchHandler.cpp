@@ -1,6 +1,7 @@
 #include "TouchHandler.h"
 #include "Config.h"
 #include "ConfigScreen.h"
+#include "BenchScreen.h"
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
 #include <SPI.h>
@@ -15,6 +16,10 @@ TouchHandler touchHandler;
 // External display reference
 extern TFT_eSPI display;
 extern uint8_t currentScreen;
+extern bool debugMode;
+
+// External screen instances
+extern BenchScreen benchScreen;
 
 TouchHandler::TouchHandler() :
   touch(nullptr),
@@ -79,15 +84,31 @@ TouchEvent TouchHandler::readTouch() {
   TouchEvent event = {0, 0, false, millis(), false};
   
   if (!touch) {
+    static uint32_t lastNoTouchPrint = 0;
+    if (millis() - lastNoTouchPrint > 5000) {
+      Serial.println("[Touch] ERROR: Touch object is null!");
+      lastNoTouchPrint = millis();
+    }
     return event;
   }
   
   // Get raw touch coordinates
   TS_Point p = touch->getPoint();
   
-  static bool wasTouched = false;
+  // Debug: Print pressure values occasionally  
+  static uint32_t lastPressureDebug = 0;
+  static uint16_t pressureDebugCounter = 0;
+  if (++pressureDebugCounter % 1000 == 0 || millis() - lastPressureDebug > 3000) {
+    Serial.printf("[Touch] Current pressure: %d (threshold: 600)\n", p.z);
+    lastPressureDebug = millis();
+  }
   
-  if (p.z < 200) { // Minimum pressure threshold
+  static bool wasTouched = false;
+  static uint32_t stableCoordTime = 0;
+  static uint16_t stableX = 0, stableY = 0;
+  static uint8_t stableCount = 0;
+  
+  if (p.z < 600) { // Increased from 100 to 600 to reduce phantom touches
     // No touch detected
     if (wasTouched) {
       // Touch was just released - return valid release event
@@ -97,11 +118,37 @@ TouchEvent TouchHandler::readTouch() {
       event.timestamp = millis();
       event.isValid = true;
       wasTouched = false;
+      stableCount = 0; // Reset stability counter
       lastTouchTime = millis();
       return event;
     }
+    stableCount = 0; // Reset stability counter when no touch
     return event; // No touch, return invalid event
   }
+  
+  // Filter out ghost touches at consistent coordinates
+  uint16_t mappedX = mapTouchX(p.x);
+  uint16_t mappedY = mapTouchY(p.y);
+  
+  // Check if this is a phantom touch (same coordinates repeatedly)
+  if (abs((int)mappedX - 17) <= 3 && abs((int)mappedY - 315) <= 5) {
+    // This looks like a phantom touch at the problematic coordinates
+    return event; // Ignore this touch
+  }
+  
+  // Stability check: coordinates should be stable for multiple readings
+  if (abs((int)mappedX - (int)stableX) <= 10 && abs((int)mappedY - (int)stableY) <= 10) {
+    stableCount++;
+  } else {
+    stableX = mappedX;
+    stableY = mappedY;
+    stableCount = 1;
+    stableCoordTime = millis();
+  }
+  
+  // Require at least 2 stable readings before accepting touch for precise actions
+  // But allow unstable coordinates for swipe detection
+  bool isStableTouch = (stableCount >= 2);
   
   // Touch detected - apply debounce only for new touches
   if (!wasTouched) {
@@ -109,15 +156,17 @@ TouchEvent TouchHandler::readTouch() {
     if (millis() - lastTouchTime < debounceDelay) {
       return event; // Still in debounce period
     }
+    Serial.printf("[Touch] NEW TOUCH detected! Pressure: %d, Raw: (%d,%d), Mapped: (%d,%d)\n", 
+                  p.z, p.x, p.y, mappedX, mappedY);
     wasTouched = true;
   }
   
   // Map raw coordinates to screen coordinates
-  event.x = mapTouchX(p.x);
-  event.y = mapTouchY(p.y);
+  event.x = mappedX;
+  event.y = mappedY;
   event.pressed = true;
   event.timestamp = millis();
-  event.isValid = true;
+  event.isValid = isStableTouch;  // Only valid for precise touch if stable enough
   
   // Reduce debug output frequency
   static uint8_t debugCounter = 0;
@@ -136,6 +185,31 @@ TouchEvent TouchHandler::readTouch() {
   return event;
 }
 
+TouchEvent TouchHandler::readTouchRaw() {
+  // Raw touch reading for swipe detection - bypasses stability filtering
+  TouchEvent event = {0, 0, false, millis(), false};
+  
+  if (!touch) {
+    return event;
+  }
+  
+  TS_Point p = touch->getPoint();
+  
+  if (p.z < 600) {
+    // No touch detected
+    return event;
+  }
+  
+  // Map coordinates directly without stability check
+  event.x = mapTouchX(p.x);
+  event.y = mapTouchY(p.y);
+  event.pressed = true;
+  event.timestamp = millis();
+  event.isValid = true;
+  
+  return event;
+}
+
 bool TouchHandler::isTouched() {
   return touch && touch->touched();
 }
@@ -143,8 +217,16 @@ bool TouchHandler::isTouched() {
 void TouchHandler::update() {
   TouchEvent event = readTouch();
   
+  // Always pass event to navigation handler for swipe detection (even if not stable)
+  if (event.pressed || (!event.pressed && lastTouch.pressed)) {
+    // Pass both stable and unstable touches to navigation for swipe detection
+    TouchEvent navEvent = event;
+    navEvent.isValid = true;  // Always valid for navigation
+    // Navigation handler will be called from main.cpp with this event
+  }
+  
+  // Only handle precise touch areas if touch is stable
   if (event.isValid && event.pressed) {
-    // Handle touch areas
     handleTouchAreas(event.x, event.y);
     
     // Draw touch feedback (optional)
@@ -271,24 +353,24 @@ void TouchHandler::calibrate() {
 }
 
 void TouchHandler::saveCalibration() {
-  // Save calibration data to EEPROM (addresses 600-611)
-  EEPROM.writeUShort(600, calMinX);
-  EEPROM.writeUShort(602, calMaxX);
-  EEPROM.writeUShort(604, calMinY);
-  EEPROM.writeUShort(606, calMaxY);
-  EEPROM.write(608, 0xAA); // Calibration valid marker
+  // Save calibration data to EEPROM using address defined in Config.h
+  EEPROM.writeUShort(EEPROM_TOUCH_CALIB_ADDR, calMinX);
+  EEPROM.writeUShort(EEPROM_TOUCH_CALIB_ADDR + 2, calMaxX);
+  EEPROM.writeUShort(EEPROM_TOUCH_CALIB_ADDR + 4, calMinY);
+  EEPROM.writeUShort(EEPROM_TOUCH_CALIB_ADDR + 6, calMaxY);
+  EEPROM.write(EEPROM_TOUCH_CALIB_ADDR + 8, 0xAA); // Calibration valid marker
   EEPROM.commit();
   
   Serial.println("[Touch] Calibration data saved to EEPROM");
 }
 
 void TouchHandler::loadCalibration() {
-  // Load calibration data from EEPROM
-  if (EEPROM.read(608) == 0xAA) {
-    calMinX = EEPROM.readUShort(600);
-    calMaxX = EEPROM.readUShort(602);
-    calMinY = EEPROM.readUShort(604);
-    calMaxY = EEPROM.readUShort(606);
+  // Load calibration data from EEPROM using address defined in Config.h
+  if (EEPROM.read(EEPROM_TOUCH_CALIB_ADDR + 8) == 0xAA) {
+    calMinX = EEPROM.readUShort(EEPROM_TOUCH_CALIB_ADDR);
+    calMaxX = EEPROM.readUShort(EEPROM_TOUCH_CALIB_ADDR + 2);
+    calMinY = EEPROM.readUShort(EEPROM_TOUCH_CALIB_ADDR + 4);
+    calMaxY = EEPROM.readUShort(EEPROM_TOUCH_CALIB_ADDR + 6);
     isCalibrated = true;
     
     Serial.println("[Touch] Calibration data loaded from EEPROM");
@@ -482,8 +564,16 @@ void handleTouchNavigation() {
   static uint16_t maxX = 0, minX = 0; // Track extreme positions
   static uint32_t startTime = 0;
   static bool longPressDetected = false;
+  static uint32_t lastDebugPrint = 0;
   
-  TouchEvent touch = touchHandler.readTouch();
+  // Debug: Print that this function is being called (once every 5 seconds)
+  if (millis() - lastDebugPrint > 5000) {
+    Serial.println("[Touch] handleTouchNavigation() is running...");
+    lastDebugPrint = millis();
+  }
+  
+  // Get raw touch event for swipe detection (bypasses stability filtering)
+  TouchEvent touch = touchHandler.readTouchRaw();
   
   if (touch.isValid && touch.pressed) {
     if (!touchStarted) {
@@ -520,11 +610,11 @@ void handleTouchNavigation() {
       int16_t deltaX = maxX > startX + 15 ? (maxX - startX) : (minX < startX - 15 ? (minX - startX) : 0);
       
       // Only show debug for meaningful gestures (reduce spam)
-      if (horizontalRange > 10 || duration > 50) {
+      if (horizontalRange > 5 || duration > 50) {
         Serial.printf("[Swipe] Range:%d Delta:%d Time:%dms ", horizontalRange, deltaX, duration);
         
-        // Much more sensitive thresholds
-        if (horizontalRange > 25 && duration < 1000 && abs(deltaX) > 20) {
+        // More sensitive thresholds for swipe detection
+        if (horizontalRange > 15 && duration < 1000 && abs(deltaX) > 10) {
           bool swipeDetected = false;
           
           if (deltaX > 0) {
@@ -576,6 +666,15 @@ void handleTouchNavigation() {
     if (currentScreen == SCREEN_CONFIG) {
       if (configScreen.handleTouch(touch.x, touch.y)) {
         Serial.printf("[Touch] Config screen handled touch at (%d, %d)\n", touch.x, touch.y);
+      }
+    } else if (currentScreen == SCREEN_BENCH) {
+      // Handle BENCH screen touches
+      if (benchScreen.handleTouch(touch.x, touch.y)) {
+#if ENABLE_DEBUG_MODE
+        if (debugMode) {
+          Serial.printf("[Touch] Bench screen handled touch at (%d, %d)\n", touch.x, touch.y);
+        }
+#endif
       }
     } else {
       // Handle other screen touches

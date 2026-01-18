@@ -51,7 +51,14 @@ void handleSerialCommunication() {
   tps = getByte(24) / 2.0;
   adv = (int8_t)getByte(23);
   fp = getByte(103);
-  vss = getWord(100);
+  
+  // Only update VSS from ECU if GPS is not providing valid speed data
+  if (!gpsEnabled || !gpsDataValid) {
+    vss = getWord(100);
+  } else {
+    // GPS is providing speed, keep using GPS speed for VSS
+    // ECU VSS data is ignored in favor of GPS accuracy
+  }
   
   // Read status bits
   syncStatus = getBit(31, 7);

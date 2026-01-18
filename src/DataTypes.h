@@ -60,4 +60,21 @@ extern uint32_t loopStartTime;
 // Screen management
 extern uint8_t currentScreen;
 
+// GPS data variables
+extern bool gpsEnabled;
+extern bool gpsDataValid;
+extern float gpsSpeed;      // Vehicle speed from GPS in km/h
+extern double gpsLatitude;  // GPS latitude in degrees
+extern double gpsLongitude; // GPS longitude in degrees
+extern float gpsHeading;    // GPS heading in degrees (0-359)
+extern float gpsAltitude;   // GPS altitude in meters
+extern uint8_t gpsNumSats;  // Number of GPS satellites
+extern uint32_t gpsLastUpdate; // Last GPS data update timestamp
+
+// AC Controller data variables (ESP-NOW)
+extern bool acControllerEnabled;
+extern bool acDataReceived;
+extern float acCurrentTemp;
+extern uint32_t acLastUpdate;
+
 #endif // DATATYPES_H

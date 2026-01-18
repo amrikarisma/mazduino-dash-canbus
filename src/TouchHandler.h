@@ -69,6 +69,7 @@ public:
   
   // Touch reading
   TouchEvent readTouch();
+  TouchEvent readTouchRaw(); // For swipe detection without stability filtering
   bool isTouched();
   void update();
   

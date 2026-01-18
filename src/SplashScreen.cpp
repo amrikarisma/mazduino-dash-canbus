@@ -50,7 +50,7 @@ void showAnimatedSplashScreen() {
   
   // Gradual fade-in effect from completely off to target brightness
   for (int brightness = 0; brightness <= targetBrightness; brightness += 5) {
-    ledcWrite(BACKLIGHT_PIN, brightness);
+    ledcWrite(BACKLIGHT_CHANNEL, brightness);
     delay(50); // Smooth fade-in over ~2 seconds
   }
   
@@ -59,7 +59,7 @@ void showAnimatedSplashScreen() {
   
   // Quick fade out back to off
   for (int brightness = targetBrightness; brightness >= 0; brightness -= 10) {
-    ledcWrite(BACKLIGHT_PIN, brightness);
+    ledcWrite(BACKLIGHT_CHANNEL, brightness);
     delay(20);
   }
   

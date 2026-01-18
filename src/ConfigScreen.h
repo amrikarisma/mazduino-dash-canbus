@@ -48,6 +48,7 @@ private:
     // Helper functions
     void drawSystemInfo(bool forceRedraw);
     void drawWiFiStatus(bool forceRedraw);
+    void drawGPSStatus(bool forceRedraw);
     void drawConfigOptions(bool forceRedraw);
     void drawScreenIndicator(bool forceRedraw);
     void drawPressProgress();
@@ -56,6 +57,7 @@ private:
     void drawStatusSection(int y, bool selected = false);
     void drawCommModeSection(int y, bool selected = false);
     void drawWiFiSection(int y, bool selected = false);
+    void drawGPSSection(int y, bool selected = false);
     void drawDisplaySection(int y, bool selected = false);
     void drawBrightnessSection(int y, bool selected = false);
     void drawDebugSection(int y, bool selected = false);
@@ -64,6 +66,7 @@ private:
     // Configuration change handlers
     void handleSectionTouch(int sectionId);
     void toggleCommMode();
+    void toggleGPSMode();
     void adjustBrightness();
     void toggleDebugMode();
     
