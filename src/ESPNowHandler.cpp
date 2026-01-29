@@ -30,8 +30,10 @@ void initESPNow() {
     return;
   }
   
-  // Register callback function for receiving data
-  esp_now_register_recv_cb(onESPNowDataReceived);
+  // Register callback function for receiving data (new API uses esp_now_recv_info)
+  esp_now_register_recv_cb([](const esp_now_recv_info *info, const uint8_t *data, int len) {
+    onESPNowDataReceived(info->src_addr, data, len);
+  });
   
   // Initialize AC data with default values
   receivedACData.temperature = 0.0;
@@ -60,8 +62,10 @@ void reinitESPNowAfterWiFi() {
     return;
   }
   
-  // Re-register callback
-  esp_now_register_recv_cb(onESPNowDataReceived);
+  // Re-register callback (new API uses esp_now_recv_info)
+  esp_now_register_recv_cb([](const esp_now_recv_info *info, const uint8_t *data, int len) {
+    onESPNowDataReceived(info->src_addr, data, len);
+  });
   
   Serial.println("ESP-NOW re-initialized successfully");
   Serial.printf("Ready to receive on MAC: %s\n", WiFi.macAddress().c_str());

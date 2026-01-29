@@ -97,8 +97,8 @@ void drawConfigurableData(bool setup) {
     // Use global currentGear from RusEFI CAN data if available, otherwise calculate
     int displayGear = currentGear; // Global currentGear from RusEFI
     if (currentGear == 0) {
-      // Fallback to simple gear calculation if no CAN data
-      displayGear = (vss > 0 && rpm > 800) ? ((rpm / 1000) + (vss / 40)) % 6 + 1 : 0;
+      // Fallback to simple gear calculation if no CAN data (max gear 5)
+      displayGear = (vss > 0 && rpm > 800) ? ((rpm / 1000) + (vss / 40)) % 5 + 1 : 0;
     }
     if (setup || lastGear != displayGear) {
       spr.createSprite(60, 60);

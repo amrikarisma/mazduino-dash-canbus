@@ -55,6 +55,7 @@ void handleSerialCommunication() {
   // Only update VSS from ECU if GPS is not providing valid speed data
   if (!gpsEnabled || !gpsDataValid) {
     vss = getWord(100);
+    currentGear = getWord(102);
   } else {
     // GPS is providing speed, keep using GPS speed for VSS
     // ECU VSS data is ignored in favor of GPS accuracy
