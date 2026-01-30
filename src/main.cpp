@@ -4,6 +4,7 @@
 #include <WebServer.h>
 #include <TFT_eSPI.h>
 #include <math.h>
+#include <esp_wifi.h>
 
 // Include all our modular headers
 #include "Config.h"
@@ -75,6 +76,26 @@ void handleSerialCommands()
           Serial.println("Serial debug prints disabled");
           Serial.println("===========================");
         }
+        break;
+      case 'n':
+      case 'N':
+        // Network debug information
+        Serial.println("=== Network Debug Info ===");
+        Serial.printf("WiFi Mode: %d (0=NULL, 1=STA, 2=AP, 3=AP_STA)\n", WiFi.getMode());
+        Serial.printf("STA Status: %d\n", WiFi.status());
+        if (WiFi.isConnected()) {
+          Serial.printf("STA IP: %s\n", WiFi.localIP().toString().c_str());
+          Serial.printf("STA Channel: %d\n", WiFi.channel());
+          Serial.printf("Signal Strength: %d dBm\n", WiFi.RSSI());
+        }
+        Serial.printf("AP IP: %s\n", WiFi.softAPIP().toString().c_str());
+        
+        // Channel debug
+        wifi_config_t ap_config;
+        if (esp_wifi_get_config(WIFI_IF_AP, &ap_config) == ESP_OK) {
+          Serial.printf("AP Channel: %d\n", ap_config.ap.channel);
+        }
+        Serial.println("========================");
         break;
       case 'i':
       case 'I':
@@ -313,7 +334,9 @@ void setup()
   display.fillScreen(TFT_BLACK);
   
   Serial.begin(UART_BAUD);
+  Serial.printf("[DEBUG] Reading commMode from EEPROM address %d\n", EEPROM_COMM_MODE_ADDR);
   commMode = EEPROM.read(EEPROM_COMM_MODE_ADDR);
+  Serial.printf("[DEBUG] EEPROM read commMode: %d\n", commMode);
   
   // Load CAN protocol configuration
   loadCanProtocol();
@@ -323,6 +346,7 @@ void setup()
   
   // If EEPROM is uninitialized (0xFF), set default to CAN mode
   if (commMode == 255) {
+    Serial.printf("[DEBUG] commMode is uninitialized (255), setting to default CAN (%d)\n", COMM_CAN);
     commMode = COMM_CAN;
     EEPROM.write(EEPROM_COMM_MODE_ADDR, commMode);
     EEPROM.commit();
@@ -330,6 +354,7 @@ void setup()
   
   Serial.println("=== MAZDUINO DASHBOARD STARTING ===");
   Serial.printf("Communication mode: %s\n", (commMode == COMM_CAN) ? "CAN" : "Serial");
+  Serial.printf("[DEBUG] Final commMode value: %d (0=CAN, 1=Serial)\n", commMode);
   
   // Synchronize isCANMode with commMode
   isCANMode = (commMode == COMM_CAN);

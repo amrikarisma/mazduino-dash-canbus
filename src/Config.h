@@ -121,7 +121,15 @@ extern const char *password;
 #define SPLASH_BIIES 3
 #define SPLASH_ZYCAS 4
 #define SPLASH_SPINE 5
-#define DEFAULT_SPLASH_SCREEN SPLASH_MAZDUINO
+#define SPLASH_JW 6
+#define SPLASH_BMW 7
+
+// Build-time splash screen selection - change this to set default
+#ifndef BUILD_DEFAULT_SPLASH
+#define BUILD_DEFAULT_SPLASH SPLASH_BMW  // Default BMW splash screen
+#endif
+
+#define DEFAULT_SPLASH_SCREEN BUILD_DEFAULT_SPLASH
 
 // Speeduino data mode options
 #define SPEEDUINO_MODE_A 0  // Simple data set (75 bytes) - for Arduino Mega clones with limited capability

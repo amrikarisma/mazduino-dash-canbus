@@ -48,10 +48,10 @@ private:
     // Helper functions
     void drawSystemInfo(bool forceRedraw);
     void drawWiFiStatus(bool forceRedraw);
-    void drawGPSStatus(bool forceRedraw);
     void drawConfigOptions(bool forceRedraw);
     void drawScreenIndicator(bool forceRedraw);
     void drawPressProgress();
+    void clearProgressArea();
     
     // Configuration sections
     void drawStatusSection(int y, bool selected = false);

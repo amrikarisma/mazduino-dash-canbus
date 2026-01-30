@@ -6,7 +6,27 @@
 #include "RobotoBold32.h"
 #include "Arduino.h"
 #include "version.h"
+// Conditional includes based on build-time splash selection to save flash memory
+#if BUILD_DEFAULT_SPLASH == 0  // SPLASH_MAZDUINO
 #include "splash_image/mazduino.h"
+#elif BUILD_DEFAULT_SPLASH == 6  // SPLASH_JW
+#include "splash_image/jw.h"
+#elif BUILD_DEFAULT_SPLASH == 7  // SPLASH_BMW
+#include "splash_image/bmw.h"
+#elif BUILD_DEFAULT_SPLASH == 1  // SPLASH_MERCY
+#include "splash_image/mercy.h"
+#elif BUILD_DEFAULT_SPLASH == 2  // SPLASH_HEDON
+#include "splash_image/hedon.h"
+#elif BUILD_DEFAULT_SPLASH == 3  // SPLASH_BIIES
+#include "splash_image/biies.h"
+#elif BUILD_DEFAULT_SPLASH == 4  // SPLASH_ZYCAS
+#include "splash_image/zycas.h"
+#elif BUILD_DEFAULT_SPLASH == 5  // SPLASH_SPINE
+#include "splash_image/spine.h"
+#else
+// Default fallback to Mazduino
+#include "splash_image/mazduino.h"
+#endif
 #include <EEPROM.h>
 
 // External display object
@@ -20,25 +40,49 @@ void showAnimatedSplashScreen() {
   
   // Load splash screen preference from EEPROM
   selectedSplashScreen = EEPROM.read(EEPROM_SPLASH_SCREEN_ADDR); // Use centralized EEPROM address
-  if (selectedSplashScreen != SPLASH_MAZDUINO && selectedSplashScreen != SPLASH_MERCY && selectedSplashScreen != SPLASH_HEDON && selectedSplashScreen != SPLASH_BIIES && selectedSplashScreen != SPLASH_ZYCAS && selectedSplashScreen != SPLASH_SPINE) {
-    selectedSplashScreen = DEFAULT_SPLASH_SCREEN; // Default to mazduino if invalid
-  }
+  
+  // Force to build-time selected splash to save flash memory
+  // Runtime selection disabled to reduce flash usage
+  selectedSplashScreen = BUILD_DEFAULT_SPLASH;
+  
+  Serial.printf("[Splash] Build-time splash selection: %d\n", selectedSplashScreen);
   
   // Display the selected image with color byte swapping for correct colors
   display.setSwapBytes(true);  // Enable byte swapping for RGB565 color correction
   
-  if (selectedSplashScreen == SPLASH_MAZDUINO) {
-    // Mazduino uses monochrome bitmap format, use drawBitmap with white color
-    display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
-  } else {
-    // For all other splash screens, show informative text
-    display.setTextColor(TFT_WHITE, TFT_BLACK);
-    display.setTextDatum(MC_DATUM);
-    display.drawString("MAZDUINO DISPLAY", 240, 140, 4);
-    display.drawString("Selected splash image not available", 240, 180, 2);
-    display.drawString("(Only Mazduino available for flash optimization)", 240, 200, 2);
-    display.drawString("Please select Mazduino splash", 240, 240, 2);
-  }
+  // Conditional rendering based on build-time selection to save flash memory
+#if BUILD_DEFAULT_SPLASH == 0  // SPLASH_MAZDUINO
+  // Mazduino uses monochrome bitmap format, use drawBitmap with white color
+  display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
+  Serial.println("[Splash] Displaying Mazduino splash");
+#elif BUILD_DEFAULT_SPLASH == 6  // SPLASH_JW
+  // JW uses RGB565 color format, display full color image (480x320)
+  display.pushImage(0, 0, 480, 320, epd_bitmap_jw);
+  Serial.println("[Splash] Displaying JW splash");
+#elif BUILD_DEFAULT_SPLASH == 7  // SPLASH_BMW
+  // BMW uses RGB565 color format, display full color image (480x320)
+  display.pushImage(0, 0, 480, 320, epd_bitmap_bmw);
+  Serial.println("[Splash] Displaying BMW splash");
+#elif BUILD_DEFAULT_SPLASH == 1  // SPLASH_MERCY
+  display.pushImage(0, 0, 480, 320, epd_bitmap_mercy);
+  Serial.println("[Splash] Displaying Mercy splash");
+#elif BUILD_DEFAULT_SPLASH == 2  // SPLASH_HEDON
+  display.pushImage(0, 0, 480, 320, epd_bitmap_hedon);
+  Serial.println("[Splash] Displaying Hedon splash");
+#elif BUILD_DEFAULT_SPLASH == 3  // SPLASH_BIIES
+  display.pushImage(0, 0, 480, 320, epd_bitmap_biies);
+  Serial.println("[Splash] Displaying Biies splash");
+#elif BUILD_DEFAULT_SPLASH == 4  // SPLASH_ZYCAS
+  display.pushImage(0, 0, 480, 320, epd_bitmap_zycas);
+  Serial.println("[Splash] Displaying Zycas splash");
+#elif BUILD_DEFAULT_SPLASH == 5  // SPLASH_SPINE
+  display.pushImage(0, 0, 480, 320, epd_bitmap_spine);
+  Serial.println("[Splash] Displaying Spine splash");
+#else
+  // Default fallback to Mazduino (monochrome)
+  display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
+  Serial.println("[Splash] Displaying Mazduino splash (fallback)");
+#endif
   
   display.setSwapBytes(false); // Disable byte swapping after image display
   
@@ -72,7 +116,7 @@ int getSplashScreenSelection() {
 }
 
 void setSplashScreenSelection(int selection) {
-  if (selection == SPLASH_MAZDUINO || selection == SPLASH_MERCY || selection == SPLASH_HEDON || selection == SPLASH_BIIES || selection == SPLASH_ZYCAS || selection == SPLASH_SPINE) {
+  if (selection == SPLASH_MAZDUINO || selection == SPLASH_MERCY || selection == SPLASH_HEDON || selection == SPLASH_BIIES || selection == SPLASH_ZYCAS || selection == SPLASH_SPINE || selection == SPLASH_JW) {
     selectedSplashScreen = selection;
     EEPROM.write(EEPROM_SPLASH_SCREEN_ADDR, selection);
     EEPROM.commit();

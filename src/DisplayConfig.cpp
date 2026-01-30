@@ -288,8 +288,14 @@ uint32_t getCanSpeed() {
 }
 
 void setCanSpeed(uint32_t speed) {
+  Serial.printf("[DEBUG] setCanSpeed called with: %u bps\n", speed);
+  Serial.printf("[DEBUG] Old canSpeed: %u bps\n", currentDisplayConfig.canSpeed);
+  
   currentDisplayConfig.canSpeed = speed;
+  Serial.printf("[DEBUG] New canSpeed: %u bps\n", currentDisplayConfig.canSpeed);
+  
   saveDisplayConfig();
+  Serial.printf("[DEBUG] setCanSpeed completed - EEPROM should be saved\n");
 }
 
 uint8_t getCanProtocol() {
@@ -297,17 +303,30 @@ uint8_t getCanProtocol() {
 }
 
 void setCanProtocol(uint8_t protocol) {
+  Serial.printf("[DEBUG] setCanProtocol called with: %d (%s)\n", protocol, 
+                (protocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
+  Serial.printf("[DEBUG] Old canProtocol: %d (%s)\n", canProtocol,
+                (canProtocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
+  
   canProtocol = protocol;
   
   // Save to EEPROM
+  Serial.printf("[DEBUG] Writing to EEPROM address %d: %d\n", EEPROM_CAN_PROTOCOL_ADDR, protocol);
   EEPROM.write(EEPROM_CAN_PROTOCOL_ADDR, protocol);
   EEPROM.commit();
+  
+  // Verify write
+  uint8_t readBack = EEPROM.read(EEPROM_CAN_PROTOCOL_ADDR);
+  Serial.printf("[DEBUG] EEPROM readback: %d (%s match)\n", readBack, 
+                (readBack == protocol) ? "GOOD" : "FAILED");
   
   Serial.printf("CAN protocol set to: %s\n", (protocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
 }
 
 void loadCanProtocol() {
+  Serial.printf("[DEBUG] loadCanProtocol called, reading from EEPROM address %d\n", EEPROM_CAN_PROTOCOL_ADDR);
   uint8_t storedProtocol = EEPROM.read(EEPROM_CAN_PROTOCOL_ADDR);
+  Serial.printf("[DEBUG] EEPROM read value: %d\n", storedProtocol);
   
   // Check if it's a valid protocol value
   if (storedProtocol == CAN_PROTOCOL_HALTECH || storedProtocol == CAN_PROTOCOL_RUSEFI) {
@@ -315,6 +334,8 @@ void loadCanProtocol() {
     Serial.printf("CAN protocol loaded: %s\n", (canProtocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
   } else {
     canProtocol = DEFAULT_CAN_PROTOCOL;
-    Serial.printf("Using default CAN protocol: %s\n", (canProtocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
+    Serial.printf("Invalid stored protocol (%d), using default CAN protocol: %s\n", 
+                  storedProtocol, (canProtocol == CAN_PROTOCOL_HALTECH) ? "Haltech" : "RusEFI");
   }
+  Serial.printf("[DEBUG] loadCanProtocol completed, canProtocol = %d\n", canProtocol);
 }

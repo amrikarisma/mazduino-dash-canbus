@@ -326,8 +326,8 @@ const char *uploadPage PROGMEM = R"rawliteral(
       function setCommMode(mode) {
         // Update UI immediately
         updateCommModeButtons(mode === 'can' ? 0 : 1);
-        // Mark as pending change
-        markPendingChange('commMode', mode);
+        // Mark as pending change - convert to number for consistency
+        markPendingChange('commMode', mode === 'can' ? 0 : 1);
       }
       
       function updateCommModeButtons(currentMode) {
@@ -336,30 +336,72 @@ const char *uploadPage PROGMEM = R"rawliteral(
         const canConfig = document.getElementById('canConfiguration');
         const serialConfig = document.getElementById('serialConfiguration');
         
-        if (currentMode === 0 || currentMode === 'CAN Bus') { // CAN mode
-          if (canBtn) {
-            canBtn.classList.add('active');
-            canBtn.disabled = true;
+        // Reset all buttons first
+        if (canBtn) {
+          canBtn.classList.remove('active');
+          canBtn.disabled = false;
+        }
+        if (serialBtn) {
+          serialBtn.classList.remove('active');
+          serialBtn.disabled = false;
+        }
+        
+        // Check if it's a specific mode string from status
+        if (typeof currentMode === 'string') {
+          if (currentMode.includes('Haltech') || currentMode.includes('RusEFI')) {
+            // CAN mode
+            if (canBtn) {
+              canBtn.classList.add('active');
+              canBtn.disabled = true;
+            }
+            if (canConfig) canConfig.style.display = 'block';
+            if (serialConfig) serialConfig.style.display = 'none';
+            
+            // Update CAN protocol selector based on detected mode
+            const protocolSelect = document.getElementById('canProtocolSelect');
+            if (protocolSelect) {
+              if (currentMode.includes('Haltech')) {
+                protocolSelect.value = 'haltech';
+              } else if (currentMode.includes('RusEFI')) {
+                protocolSelect.value = 'rusefi';
+              }
+            }
+          } else if (currentMode.includes('Serial')) {
+            // Serial mode
+            if (serialBtn) {
+              serialBtn.classList.add('active');
+              serialBtn.disabled = true;
+            }
+            if (canConfig) canConfig.style.display = 'none';
+            if (serialConfig) serialConfig.style.display = 'block';
+            
+            // Update speeduino mode selector based on detected mode
+            const speeduinoSelect = document.getElementById('speeduinoMode');
+            if (speeduinoSelect) {
+              if (currentMode.includes('Mode A')) {
+                speeduinoSelect.value = '0';
+              } else if (currentMode.includes('Mode N')) {
+                speeduinoSelect.value = '1';
+              }
+            }
           }
-          if (serialBtn) {
-            serialBtn.classList.remove('active');
-            serialBtn.disabled = false;
+        } else {
+          // Legacy numeric mode
+          if (currentMode === 0 || currentMode === 'CAN Bus') {
+            if (canBtn) {
+              canBtn.classList.add('active');
+              canBtn.disabled = true;
+            }
+            if (canConfig) canConfig.style.display = 'block';
+            if (serialConfig) serialConfig.style.display = 'none';
+          } else {
+            if (serialBtn) {
+              serialBtn.classList.add('active');
+              serialBtn.disabled = true;
+            }
+            if (canConfig) canConfig.style.display = 'none';
+            if (serialConfig) serialConfig.style.display = 'block';
           }
-          
-          if (canConfig) canConfig.style.display = 'block';
-          if (serialConfig) serialConfig.style.display = 'none';
-        } else { // Serial mode
-          if (serialBtn) {
-            serialBtn.classList.add('active');
-            serialBtn.disabled = true;
-          }
-          if (canBtn) {
-            canBtn.classList.remove('active');
-            canBtn.disabled = false;
-          }
-          
-          if (canConfig) canConfig.style.display = 'none';
-          if (serialConfig) serialConfig.style.display = 'block';
         }
       }
       
@@ -511,33 +553,31 @@ const char *uploadPage PROGMEM = R"rawliteral(
           });
       }
       
-      function updateCanSpeed() {
-        const select = document.getElementById('canSpeedSelect');
-        const speed = select.value;
-        markPendingChange('canSpeed', speed);
+      function updateCanProtocol() {
+        const select = document.getElementById('canProtocolSelect');
+        const protocol = select.value;
+        markPendingChange('canProtocol', protocol);
       }
-      function loadCanSpeed() {
-        fetch('/canspeed')
+      
+      function loadCanProtocol() {
+        fetch('/canprotocol')
           .then(response => response.text())
-          .then(speed => {
-            const select = document.getElementById('canSpeedSelect');
-            if (select) select.value = speed;
+          .then(protocol => {
+            const select = document.getElementById('canProtocolSelect');
+            if (select) select.value = protocol;
           });
       }
       
+      // Splash screen functions disabled - using build-time selection only
       function updateSplashScreen() {
-        const select = document.getElementById('splashSelect');
-        const splash = select.value;
-        markPendingChange('splash', splash);
+        console.log('Splash screen selection disabled - using build-time selection');
       }
       
       function loadSplashScreen() {
-        fetch('/splash')
-          .then(response => response.text())
-          .then(splash => {
-            const select = document.getElementById('splashSelect');
-            if (select) select.value = splash;
-          });
+        // Display current build-time splash selection
+        const buildSplashId = document.getElementById('buildSplashId');
+        if (buildSplashId) buildSplashId.textContent = '7'; // BMW default
+        console.log('Splash screen: Build-time selection active');
       }
       
       function updateBrightness(value) {
@@ -681,6 +721,25 @@ const char *uploadPage PROGMEM = R"rawliteral(
         }
       }
       
+      function disconnectWiFi() {
+        if (confirm('Switch to Access Point mode?\n\nDevice will disconnect from router and create its own WiFi network (MAZDUINO_Display).')) {
+          fetch('/wifi/ap', { method: 'POST' })
+            .then(response => response.text())
+            .then(data => {
+              alert('Switching to AP mode. Device will restart.\n\nConnect to MAZDUINO_Display network and visit 192.168.4.1');
+              setTimeout(() => location.reload(), 3000);
+            })
+            .catch(error => {
+              alert('Error switching to AP mode: ' + error);
+            });
+        }
+      }
+      
+      // Alias for compatibility
+      function switchToAP() {
+        disconnectWiFi();
+      }
+      
       function forgetWiFi() {
         if (confirm('Forget saved WiFi credentials?\n\nThis will clear stored router information and restart in AP mode.')) {
           fetch('/wifi/forget', { method: 'POST' })
@@ -801,12 +860,16 @@ const char *uploadPage PROGMEM = R"rawliteral(
           
           switch(key) {
             case 'commMode':
-              endpoint = '/setMode';
+              endpoint = '/setCommMode';
               body = 'mode=' + (value === 0 ? 'can' : 'serial');
               break;
             case 'canSpeed':
               endpoint = '/canspeed';
               body = 'speed=' + value;
+              break;
+            case 'canProtocol':
+              endpoint = '/canprotocol';
+              body = 'protocol=' + value;
               break;
             case 'splash':
               endpoint = '/splash';
@@ -831,13 +894,22 @@ const char *uploadPage PROGMEM = R"rawliteral(
         
         Promise.all(promises)
           .then(responses => {
+            // Check if communication mode was changed (needs restart)
+            const needsRestart = pendingChanges.hasOwnProperty('commMode');
+            
             pendingChanges = {};
             updatePendingStatus();
-            alert('Configuration saved successfully!');
             
-            // Restart if communication mode was changed
-            if (pendingChanges.commMode !== undefined) {
-              setTimeout(() => location.reload(), 3000);
+            if (needsRestart) {
+              alert('Configuration saved successfully! Device needs restart for communication changes to take effect.');
+              if (confirm('Restart device now?')) {
+                fetch('/restart', { method: 'POST' })
+                  .then(() => {
+                    setTimeout(() => location.reload(), 5000);
+                  });
+              }
+            } else {
+              alert('Configuration saved successfully!');
             }
           })
           .catch(error => {
@@ -871,7 +943,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
       // Load display config on page load
       window.onload = function() {
         loadDisplayConfig();
-        loadCanSpeed();
+        loadCanProtocol();
         loadSplashScreen();
         loadBrightness();
         loadSpeeduinoMode();
@@ -1038,7 +1110,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
         
         <div class="grid">
           <button class="btn" onclick="scanNetworks()">Scan Networks</button>
-          <button class="btn" onclick="connectToRouter()">Connect to Router</button>
+          <button class="btn" onclick="connectToRouter()">Connect to Router (STA Mode)</button>
         </div>
         
         <div id="networkScan" style="display: none; margin-top: 15px;">
@@ -1356,14 +1428,15 @@ const char *uploadPage PROGMEM = R"rawliteral(
         <div id="canConfiguration" style="display: none; margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
           <h3>CAN Bus Configuration</h3>
           <div class="config-item">
-            <label for="canSpeedSelect">CAN Speed:</label>
-            <select id="canSpeedSelect" onchange="updateCanSpeed()">
-              <option value="500000">500 Kbps</option>
-              <option value="1000000">1 Mbps</option>
+            <label for="canProtocolSelect">CAN Protocol:</label>
+            <select id="canProtocolSelect" onchange="updateCanProtocol()">
+              <option value="rusefi">RusEFI (500 Kbps)</option>
+              <option value="haltech">Haltech (1 Mbps)</option>
             </select>
           </div>
           <p style="font-size: 12px; opacity: 0.8; margin-top: 10px;">
-            Select CAN speed according to your hardware/ECU requirements.<br>
+            <strong>RusEFI (500 Kbps):</strong> RusEFI ECU with 500K CAN speed<br>
+            <strong>Haltech (1 Mbps):</strong> Haltech ECU with 1M CAN speed<br>
             Changes will be saved and applied on next restart.
           </p>
         </div>
@@ -1387,8 +1460,9 @@ const char *uploadPage PROGMEM = R"rawliteral(
         <p style="font-size: 14px; opacity: 0.8; margin-top: 15px;">
           <strong>Communication Mode Explanation:</strong>
           <ul style="margin: 10px 0; padding-left: 20px;">
-            <li><strong>CAN Bus Mode:</strong> Receives data via CAN bus (standard automotive protocol)</li>
-            <li><strong>Serial Mode:</strong> Receives data via serial communication (UART)</li>
+            <li><strong>CAN Bus Mode:</strong> Receives data via CAN bus (Haltech 1Mbps or RusEFI 500Kbps)</li>
+            <li><strong>Serial Mode:</strong> Receives data via serial communication (Mode A or Mode N)</li>
+
           </ul>
           The active mode is shown on the display:
           <ul style="margin: 10px 0; padding-left: 20px;">
@@ -1554,24 +1628,23 @@ const char *uploadPage PROGMEM = R"rawliteral(
         </div>
       </div>
       
-      <!-- Hidden Splash Screen Section - not in navigation -->
+      <!-- Splash Screen Configuration - DISABLED to save flash memory -->
       <div class="section splash-logo" style="display: none;">
         <h2>Splash Screen Configuration</h2>
+        <p style="color: #FF9800; font-style: italic; margin-bottom: 15px;">
+          ⚠️ Splash screen selection disabled to save flash memory.<br>
+          Current build uses fixed splash screen selected at compile time.<br>
+          To use different splash, build with different environment (esp32dev-bmw, esp32dev-jw, etc.)
+        </p>
         <div class="config-item">
-          <label for="splashSelect">Splash Screen:</label>
-          <select id="splashSelect" onchange="updateSplashScreen()">
-            <option value="0">Mazduino</option>
-            <option value="1">Mercedes</option>
-            <option value="2">Hedon</option>
-            <option value="3">Biies</option>
-            <option value="4">Zycas</option>
-            <option value="5">Spine</option>
-          </select>
+          <label>Current Splash:</label>
+          <span style="color: #4CAF50; font-weight: bold;">Build-time selected (ID: <span id="buildSplashId"></span>)</span>
         </div>
         <p style="font-size: 14px; opacity: 0.8;">
-          Pilih gambar yang akan ditampilkan saat startup.<br>
-          Perubahan akan disimpan dan digunakan saat restart berikutnya.
+          Flash memory optimized: Only selected splash image is included in firmware.<br>
+          This saves ~300KB+ of flash space per unused splash screen.
         </p>
+      </div>
       </div>
     </div>
     
@@ -1641,6 +1714,7 @@ void startWebServer()
         Serial.printf("✓ Station IP: %s\n", WiFi.localIP().toString().c_str());
         Serial.printf("✓ Access web server at: http://%s/\n", WiFi.localIP().toString().c_str());
         Serial.printf("✓ Signal strength: %d dBm\n", WiFi.RSSI());
+        Serial.printf("✓ Channel: %d\n", WiFi.channel());
         wifiConnected = true;
         
         // Store successful connection info
@@ -1661,28 +1735,39 @@ void startWebServer()
     }
   }
   
+  // Always start AP in dual mode for ESP-NOW compatibility
+  // Configure AP to use same channel as STA if connected
+  Serial.println("Configuring Access Point (ESP-NOW compatibility)...");
+  WiFi.mode(WIFI_AP_STA);  // Ensure dual mode
+  
+  // Configure AP with better settings
+  WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
+  
+  // Get current STA channel if connected, otherwise use default
+  int apChannel = 1; // Default channel
+  if (wifiConnected && WiFi.status() == WL_CONNECTED) {
+    apChannel = WiFi.channel();
+    Serial.printf("STA connected on channel %d, setting AP to same channel\n", apChannel);
+  } else {
+    Serial.printf("STA not connected, using default AP channel %d\n", apChannel);
+  }
+  
+  bool apStarted = WiFi.softAP(ssid, password, apChannel, 0, 8);
+  
+  if (apStarted) {
+    delay(2000); // Give AP time to fully start
+    Serial.printf("✓ AP started: %s (Channel %d)\n", ssid, apChannel);
+    Serial.printf("✓ AP IP Address: %s\n", WiFi.softAPIP().toString().c_str());
+    Serial.printf("✓ Access web server at: http://%s/\n", WiFi.softAPIP().toString().c_str());
+    Serial.println("✓ Connect to WiFi network 'MAZDUINO_Display' to access dashboard");
+  } else {
+    Serial.println("✗ Failed to start AP mode!");
+  }
+  
   if (!stationMode) {
-    // Start in Access Point mode (but maintain STA for ESP-NOW)
-    Serial.println("Starting Access Point mode (with STA for ESP-NOW)...");
-    WiFi.mode(WIFI_AP_STA);  // Use AP+STA mode for ESP-NOW compatibility
-    
-    // Configure AP with better settings
-    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
-    bool apStarted = WiFi.softAP(ssid, password, 1, 0, 8); // Channel 1, hidden=false, max_connections=8
-    
-    if (apStarted) {
-      delay(2000); // Give AP time to fully start
-      Serial.printf("✓ AP started: %s\n", ssid);
-      Serial.printf("✓ AP IP Address: %s\n", WiFi.softAPIP().toString().c_str());
-      Serial.printf("✓ Access web server at: http://%s/\n", WiFi.softAPIP().toString().c_str());
-      Serial.println("✓ Connect to WiFi network 'MAZDUINO_Display' to access dashboard");
-      
-      // Store AP mode info
-      EEPROM.write(501, 0); // WiFi not connected to router
-      EEPROM.commit();
-    } else {
-      Serial.println("✗ Failed to start AP mode!");
-    }
+    // Store AP-only mode info
+    EEPROM.write(501, 0); // WiFi not connected to router
+    EEPROM.commit();
   }
   
   // Initialize OTA Updater
@@ -1755,22 +1840,48 @@ void startWebServer()
   // Removed duplicate WiFi status endpoint - using the one in main web server section
 
   server.on("/toggle", HTTP_POST, handleToggle);
-  server.on("/setMode", HTTP_POST, [&]()
-            {
-              String mode = server.arg("mode");
-              if (mode == "serial")
-              {
-                commMode = COMM_SERIAL;
-              }
-              else if (mode == "can")
-              {
-                commMode = COMM_CAN;
-              }
-              EEPROM.write(1, commMode);
-              EEPROM.commit();
-              server.send(200, "text/plain", "Mode updated");
-              ESP.restart();
-            });
+  // Removed /setMode endpoint - communication mode changes are handled by save configuration
+  
+  // Communication mode setting (without auto restart)
+  server.on("/setCommMode", HTTP_POST, [&]() {
+    String mode = server.arg("mode");
+    Serial.printf("[DEBUG] setCommMode called with: '%s'\n", mode.c_str());
+    Serial.printf("[DEBUG] Current commMode: %d (%s)\n", commMode, 
+                  (commMode == COMM_CAN) ? "CAN" : "Serial");
+    
+    if (mode == "serial") {
+      commMode = COMM_SERIAL;
+      EEPROM.write(EEPROM_COMM_MODE_ADDR, commMode);
+      EEPROM.commit();
+      Serial.printf("[DEBUG] commMode set to SERIAL (%d), written to EEPROM addr %d\n", 
+                    commMode, EEPROM_COMM_MODE_ADDR);
+      
+      // Verify EEPROM write
+      uint8_t readBack = EEPROM.read(EEPROM_COMM_MODE_ADDR);
+      Serial.printf("[DEBUG] EEPROM readback: %d (%s match)\n", readBack, 
+                    (readBack == commMode) ? "GOOD" : "FAILED");
+      
+      Serial.println("[WEB] Communication mode set to Serial");
+      server.send(200, "text/plain", "Serial mode set");
+    } else if (mode == "can") {
+      commMode = COMM_CAN;
+      EEPROM.write(EEPROM_COMM_MODE_ADDR, commMode);
+      EEPROM.commit();
+      Serial.printf("[DEBUG] commMode set to CAN (%d), written to EEPROM addr %d\n", 
+                    commMode, EEPROM_COMM_MODE_ADDR);
+      
+      // Verify EEPROM write
+      uint8_t readBack = EEPROM.read(EEPROM_COMM_MODE_ADDR);
+      Serial.printf("[DEBUG] EEPROM readback: %d (%s match)\n", readBack, 
+                    (readBack == commMode) ? "GOOD" : "FAILED");
+      
+      Serial.println("[WEB] Communication mode set to CAN");
+      server.send(200, "text/plain", "CAN mode set");
+    } else {
+      Serial.printf("[DEBUG] Invalid mode: '%s'\n", mode.c_str());
+      server.send(400, "text/plain", "Invalid mode");
+    }
+  });
   
   // Debug mode handler
   server.on("/debug", HTTP_POST, [&]()
@@ -1807,7 +1918,17 @@ void startWebServer()
   server.on("/status", HTTP_GET, [&]()
             {
               String json = "{";
-              json += "\"commMode\":\"" + String(commMode == COMM_CAN ? "CAN Bus" : "Serial") + "\",";
+              String commModeStr;
+              if (commMode == COMM_CAN) {
+                if (canProtocol == CAN_PROTOCOL_HALTECH) {
+                  commModeStr = "Haltech 1Mbps";
+                } else {
+                  commModeStr = "RusEFI 500Kbps";
+                }
+              } else {
+                commModeStr = "Serial Mode " + String(speeduinoDataMode == SPEEDUINO_MODE_A ? "A" : "N");
+              }
+              json += "\"commMode\":\"" + commModeStr + "\",";
               json += "\"debugMode\":" + String(debugMode ? "true" : "false") + ",";
 #if ENABLE_SIMULATOR
               json += "\"simulatorMode\":" + String(getSimulatorMode()) + ",";
@@ -2300,9 +2421,65 @@ void startWebServer()
     server.send(200, "text/plain", "");
   });
 
+  // WebServer binds to ALL interfaces by default (0.0.0.0:80)
   server.begin();
   wifiActive = true;
-  Serial.println("Web server active.");
+  
+  delay(1000); // Give server time to bind to interfaces
+  
+  // Display all accessible IP addresses
+  Serial.println("=== Web Server Started ===");
+  Serial.println("Server is listening on 0.0.0.0:80 (all interfaces)");
+  
+  if (WiFi.getMode() == WIFI_AP_STA) {
+    Serial.println("Mode: AP+STA (Dual Mode)");
+    if (WiFi.isConnected()) {
+      Serial.printf("✓ Station IP: http://%s/ (Router Network - Port 80)\n", WiFi.localIP().toString().c_str());
+      Serial.printf("  Gateway: %s\n", WiFi.gatewayIP().toString().c_str());
+      Serial.printf("  DNS: %s\n", WiFi.dnsIP().toString().c_str());
+    }
+    Serial.printf("✓ AP IP: http://%s/ (Direct Connection - Port 80)\n", WiFi.softAPIP().toString().c_str());
+    Serial.println("Web server should be accessible on BOTH IP addresses!");
+  } else if (WiFi.getMode() == WIFI_STA) {
+    Serial.printf("✓ Station IP: http://%s/\n", WiFi.localIP().toString().c_str());
+    Serial.printf("  Gateway: %s\n", WiFi.gatewayIP().toString().c_str());
+  } else if (WiFi.getMode() == WIFI_AP) {
+    Serial.printf("✓ AP IP: http://%s/\n", WiFi.softAPIP().toString().c_str());
+  }
+  
+  Serial.println("===========================");
+  
+  // Debug WiFi channel and power information
+  Serial.println("=== WiFi Debug Information ===");
+  if (WiFi.isConnected()) {
+    Serial.printf("STA Channel: %d\n", WiFi.channel());
+  }
+  
+  // Get AP channel
+  wifi_config_t ap_config;
+  esp_wifi_get_config(WIFI_IF_AP, &ap_config);
+  Serial.printf("AP Channel: %d\n", ap_config.ap.channel);
+  
+  // Check if channels match (important for ESP-NOW)
+  if (WiFi.isConnected() && WiFi.channel() != ap_config.ap.channel) {
+    Serial.println("WARNING: STA and AP channels don't match - this may cause ESP-NOW issues!");
+    Serial.println("Attempting to fix AP channel...");
+    
+    // Try to restart AP with correct channel
+    WiFi.softAPdisconnect(true);
+    delay(500);
+    int correctChannel = WiFi.channel();
+    if (WiFi.softAP(ssid, password, correctChannel, 0, 8)) {
+      Serial.printf("✓ AP restarted on correct channel %d\n", correctChannel);
+    } else {
+      Serial.println("✗ Failed to restart AP on correct channel");
+    }
+  } else {
+    Serial.println("✓ STA and AP channels match - ESP-NOW should work correctly");
+  }
+  
+  Serial.println("===============================");
+  
   esp_wifi_set_max_tx_power(78);
 }
 
@@ -2331,7 +2508,7 @@ void restartWebServer()
 
 void handleRoot()
 {
-  server.send(200, "text/html", uploadPage);
+  server.send_P(200, "text/html", uploadPage);
 }
 
 void handleUpdate()
@@ -2423,16 +2600,23 @@ void handleCanSpeed() {
     snprintf(buf, sizeof(buf), "%u", getCanSpeed());
     server.send(200, "text/plain", buf);
   } else if (server.method() == HTTP_POST) {
+    Serial.printf("[DEBUG] CAN Speed POST request received\n");
     if (server.hasArg("speed")) {
-      uint32_t speed = server.arg("speed").toInt();
+      String speedStr = server.arg("speed");
+      uint32_t speed = speedStr.toInt();
+      Serial.printf("[DEBUG] Speed parameter: '%s' -> %u\n", speedStr.c_str(), speed);
+      
       if (speed == 500000 || speed == 1000000) {
+        Serial.printf("[DEBUG] Valid speed, calling setCanSpeed(%u)\n", speed);
         setCanSpeed(speed);
         server.send(200, "text/plain", "OK");
         Serial.printf("CAN speed set to %u bps via webserver\n", speed);
       } else {
+        Serial.printf("[DEBUG] Invalid speed: %u (must be 500000 or 1000000)\n", speed);
         server.send(400, "text/plain", "Invalid speed");
       }
     } else {
+      Serial.printf("[DEBUG] Missing speed parameter in request\n");
       server.send(400, "text/plain", "Missing speed param");
     }
   } else {
@@ -2446,21 +2630,30 @@ void handleCanProtocol() {
     const char* protocolName = (protocol == CAN_PROTOCOL_HALTECH) ? "haltech" : "rusefi";
     server.send(200, "text/plain", protocolName);
   } else if (server.method() == HTTP_POST) {
+    Serial.printf("[DEBUG] CAN Protocol POST request received\n");
     if (server.hasArg("protocol")) {
       String protocolStr = server.arg("protocol");
+      Serial.printf("[DEBUG] Protocol parameter: '%s'\n", protocolStr.c_str());
+      
       protocolStr.toLowerCase();
+      Serial.printf("[DEBUG] Protocol lowercase: '%s'\n", protocolStr.c_str());
+      
       if (protocolStr == "haltech") {
+        Serial.printf("[DEBUG] Valid protocol, calling setCanProtocol(HALTECH)\n");
         setCanProtocol(CAN_PROTOCOL_HALTECH);
         server.send(200, "text/plain", "OK");
         Serial.println("CAN protocol set to Haltech via webserver");
       } else if (protocolStr == "rusefi") {
+        Serial.printf("[DEBUG] Valid protocol, calling setCanProtocol(RUSEFI)\n");
         setCanProtocol(CAN_PROTOCOL_RUSEFI);
         server.send(200, "text/plain", "OK");
         Serial.println("CAN protocol set to RusEFI via webserver");
       } else {
+        Serial.printf("[DEBUG] Invalid protocol: '%s'\n", protocolStr.c_str());
         server.send(400, "text/plain", "Invalid protocol (use: haltech or rusefi)");
       }
     } else {
+      Serial.printf("[DEBUG] Missing protocol parameter in request\n");
       server.send(400, "text/plain", "Missing protocol param");
     }
   } else {

@@ -103,11 +103,11 @@ bool BenchScreen::handleTouch(uint16_t x, uint16_t y) {
     }
 #endif
     
-    // Check IGN buttons (IGN1-IGN8) - Row 1
+    // Check IGN buttons (IGN1-IGN8) - Row 1 (adjusted for 10px margin)
     for (int i = 1; i <= 8; i++) {
-        int btnX = 10 + (i-1) * 58;
-        int btnY = 80;  // Moved down from 50
-        if (x >= btnX && x <= (btnX + 55) && y >= btnY && y <= (btnY + 45)) {
+        int btnX = 15 + (i-1) * 55;  // Start at 15px with smaller spacing to fit in margin
+        int btnY = 85;  // Moved down from 80
+        if (x >= btnX && x <= (btnX + 50) && y >= btnY && y <= (btnY + 45)) {
             selectedButton = i; // IGN button ID (1-8)
             testStartTime = millis();
             
@@ -132,11 +132,11 @@ bool BenchScreen::handleTouch(uint16_t x, uint16_t y) {
         }
     }
     
-    // Check INJ buttons (INJ1-INJ8) - Row 2  
+    // Check INJ buttons (INJ1-INJ8) - Row 2 (adjusted for 10px margin)
     for (int i = 1; i <= 8; i++) {
-        int btnX = 10 + (i-1) * 58;
-        int btnY = 150; // Moved down from 105
-        if (x >= btnX && x <= (btnX + 55) && y >= btnY && y <= (btnY + 45)) {
+        int btnX = 15 + (i-1) * 55;  // Start at 15px with smaller spacing to fit in margin
+        int btnY = 155; // Moved down from 150
+        if (x >= btnX && x <= (btnX + 50) && y >= btnY && y <= (btnY + 45)) {
             selectedButton = i + 10; // INJ button ID (11-18)
             testStartTime = millis();
             
@@ -231,12 +231,12 @@ void BenchScreen::drawIgnitionButtons(bool forceRedraw) {
         display.loadFont(AA_FONT_SMALL);
         display.setTextColor(TFT_ORANGE, TFT_BLACK);
         display.setTextDatum(TL_DATUM);
-        display.drawString("IGNITION TEST:", 10, 65);
+        display.drawString("IGNITION TEST:", 15, 70);  // Moved right and down for margin
         
-        // Draw IGN1-IGN8 buttons
+        // Draw IGN1-IGN8 buttons (adjusted for 10px margin)
         for (int i = 1; i <= 8; i++) {
-            int x = 10 + (i-1) * 58;
-            int y = 80;  // Moved down from 50
+            int x = 15 + (i-1) * 55;  // Start at 15px with smaller spacing to fit in margin
+            int y = 85;  // Moved down from 80
             bool isPressed = (selectedButton == i);
             uint16_t bgColor = isPressed ? TFT_YELLOW : TFT_DARKGREY;
             uint16_t textColor = isPressed ? TFT_BLACK : TFT_ORANGE;
@@ -244,16 +244,16 @@ void BenchScreen::drawIgnitionButtons(bool forceRedraw) {
             
             // Add shadow effect for pressed state
             if (isPressed) {
-                display.fillRect(x+2, y+2, 55, 45, TFT_DARKGREY);
+                display.fillRect(x+2, y+2, 50, 45, TFT_DARKGREY);
             }
             
-            display.fillRect(x, y, 55, 45, bgColor);
-            display.drawRect(x, y, 55, 45, borderColor);
+            display.fillRect(x, y, 50, 45, bgColor);
+            display.drawRect(x, y, 50, 45, borderColor);
             
             display.loadFont(AA_FONT_SMALL);
             display.setTextColor(textColor, bgColor);
             display.setTextDatum(MC_DATUM);
-            display.drawString("IGN" + String(i), x + 27, y + 22);
+            display.drawString("IGN" + String(i), x + 25, y + 22);
         }
     }
 }
@@ -267,12 +267,12 @@ void BenchScreen::drawInjectorButtons(bool forceRedraw) {
         display.loadFont(AA_FONT_SMALL);
         display.setTextColor(TFT_CYAN, TFT_BLACK);
         display.setTextDatum(TL_DATUM);
-        display.drawString("INJECTOR TEST:", 10, 135);
+        display.drawString("INJECTOR TEST:", 15, 140);  // Moved right for margin
         
-        // Draw INJ1-INJ8 buttons
+        // Draw INJ1-INJ8 buttons (adjusted for 10px margin)
         for (int i = 1; i <= 8; i++) {
-            int x = 10 + (i-1) * 58;
-            int y = 150; // Moved down from 105
+            int x = 15 + (i-1) * 55;  // Start at 15px with smaller spacing to fit in margin
+            int y = 155; // Moved down from 150
             bool isPressed = (selectedButton == (i + 10));
             uint16_t bgColor = isPressed ? TFT_BLUE : TFT_DARKGREY;
             uint16_t textColor = isPressed ? TFT_WHITE : TFT_CYAN;
@@ -280,16 +280,16 @@ void BenchScreen::drawInjectorButtons(bool forceRedraw) {
             
             // Add shadow effect for pressed state
             if (isPressed) {
-                display.fillRect(x+2, y+2, 55, 45, TFT_DARKGREY);
+                display.fillRect(x+2, y+2, 50, 45, TFT_DARKGREY);
             }
             
-            display.fillRect(x, y, 55, 45, bgColor);
-            display.drawRect(x, y, 55, 45, borderColor);
+            display.fillRect(x, y, 50, 45, bgColor);
+            display.drawRect(x, y, 50, 45, borderColor);
             
             display.loadFont(AA_FONT_SMALL);
             display.setTextColor(textColor, bgColor);
             display.setTextDatum(MC_DATUM);
-            display.drawString("INJ" + String(i), x + 27, y + 22);
+            display.drawString("INJ" + String(i), x + 25, y + 22);
         }
     }
 }

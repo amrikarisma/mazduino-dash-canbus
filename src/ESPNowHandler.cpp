@@ -30,9 +30,9 @@ void initESPNow() {
     return;
   }
   
-  // Register callback function for receiving data (new API uses esp_now_recv_info)
-  esp_now_register_recv_cb([](const esp_now_recv_info *info, const uint8_t *data, int len) {
-    onESPNowDataReceived(info->src_addr, data, len);
+  // Register callback function for receiving data (older ESP-NOW API)
+  esp_now_register_recv_cb([](const uint8_t *mac_addr, const uint8_t *data, int len) {
+    onESPNowDataReceived(mac_addr, data, len);
   });
   
   // Initialize AC data with default values
@@ -62,9 +62,9 @@ void reinitESPNowAfterWiFi() {
     return;
   }
   
-  // Re-register callback (new API uses esp_now_recv_info)
-  esp_now_register_recv_cb([](const esp_now_recv_info *info, const uint8_t *data, int len) {
-    onESPNowDataReceived(info->src_addr, data, len);
+  // Re-register callback (older ESP-NOW API)
+  esp_now_register_recv_cb([](const uint8_t *mac_addr, const uint8_t *data, int len) {
+    onESPNowDataReceived(mac_addr, data, len);
   });
   
   Serial.println("ESP-NOW re-initialized successfully");

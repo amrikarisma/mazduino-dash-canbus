@@ -51,9 +51,6 @@ void ConfigScreen::draw(bool forceRedraw) {
     // Draw WiFi status
     drawWiFiStatus(forceRedraw);
     
-    // Draw GPS status
-    drawGPSStatus(forceRedraw);
-    
     // Draw configuration options
     drawConfigOptions(forceRedraw);
     
@@ -83,14 +80,14 @@ bool ConfigScreen::handleTouch(uint16_t x, uint16_t y) {
     };
     
     TouchArea areas[] = {
-        {170, 50, 300, 30, 0, "Status"},
-        {170, 85, 300, 30, 1, "CommMode"},
-        {170, 120, 300, 30, 2, "WiFi"},
-        {170, 155, 300, 30, 3, "GPS"},
-        {170, 190, 300, 30, 4, "Display"},
-        {170, 225, 300, 30, 5, "Brightness"},
-        {170, 260, 300, 30, 6, "Debug"},
-        {170, 295, 300, 30, 7, "Info"}
+        {320, 50, 140, 25, 0, "Status"},
+        {320, 75, 140, 25, 1, "CommMode"},
+        {320, 100, 140, 25, 2, "WiFi"},
+        {320, 125, 140, 25, 3, "GPS"},
+        {320, 150, 140, 25, 4, "Display"},
+        {320, 175, 140, 25, 5, "Brightness"},
+        {320, 200, 140, 25, 6, "Debug"},
+        {320, 225, 140, 25, 7, "Info"}
     };
     
     // Check if touch is in any valid area
@@ -127,6 +124,10 @@ bool ConfigScreen::handleTouch(uint16_t x, uint16_t y) {
                     if (elapsed >= 3000) {
                         // 3 seconds elapsed, execute the change
                         Serial.printf("[Config] 3-second hold completed for section: %s\n", areas[touchedSection].name);
+                        
+                        // Clear progress area first
+                        clearProgressArea();
+                        
                         handleSectionTouch(touchedSection);
                         
                         // Reset press state
@@ -153,6 +154,10 @@ bool ConfigScreen::handleTouch(uint16_t x, uint16_t y) {
         // Touch outside valid areas - reset press state
         if (isPressing) {
             Serial.println("[Config] Press cancelled - touch moved outside area");
+            
+            // Clear progress area first
+            clearProgressArea();
+            
             isPressing = false;
             pressStartTime = 0;
             pressedSection = -1;
@@ -174,6 +179,9 @@ bool ConfigScreen::handleTouchRelease() {
         } else {
             Serial.printf("[Config] Hold released early (%dms) - cancelled\n", elapsed);
         }
+        
+        // Clear progress area first
+        clearProgressArea();
         
         // Reset press state
         isPressing = false;
@@ -283,7 +291,7 @@ void ConfigScreen::toggleDebugMode() {
 
 void ConfigScreen::drawSystemInfo(bool forceRedraw) {
     static String lastVersionInfo = "";
-    String currentVersionInfo = "Version: " + String(version);
+    String currentVersionInfo = String(version);
     
     if (forceRedraw || currentVersionInfo != lastVersionInfo) {
         // Clear header area
@@ -299,7 +307,7 @@ void ConfigScreen::drawSystemInfo(bool forceRedraw) {
         display.loadFont(AA_FONT_SMALL);
         display.setTextColor(TFT_WHITE, TFT_BLACK);
         display.setTextDatum(TC_DATUM);
-        display.drawString(currentVersionInfo, display.width() / 2, 28);
+        display.drawString(currentVersionInfo, display.width() -30 , 8);
         
         lastVersionInfo = currentVersionInfo;
     }
@@ -315,22 +323,24 @@ void ConfigScreen::drawWiFiStatus(bool forceRedraw) {
         uint16_t statusColor;
         
         if (WiFi.status() == WL_CONNECTED) {
-            wifiStatus = "WiFi: Connected (" + WiFi.localIP().toString() + ")";
+            // Show Station IP when connected
+            wifiStatus = "WiFi: Connected - " + WiFi.localIP().toString();
             statusColor = TFT_GREEN;
         } else {
-            wifiStatus = "WiFi: AP Mode (" + String(ssid) + ")";
+            // Show AP IP when not connected to router
+            wifiStatus = "WiFi: AP Mode - " + WiFi.softAPIP().toString();
             statusColor = TFT_ORANGE;
         }
         
         if (forceRedraw || wifiStatus != lastWiFiStatus) {
-            // Clear WiFi status area (moved up to make room for GPS)
-            display.fillRect(10, 330, display.width() - 20, 25, TFT_BLACK);
+            // Clear WiFi status area - positioned at bottom
+            display.fillRect(5, 280, display.width() - 10, 20, TFT_BLACK);
             
             // Draw WiFi status
             display.loadFont(AA_FONT_SMALL);
             display.setTextColor(statusColor, TFT_BLACK);
             display.setTextDatum(TL_DATUM);
-            display.drawString(wifiStatus, 10, 335);
+            display.drawString(wifiStatus, 10, 285);
             
             lastWiFiStatus = wifiStatus;
         }
@@ -341,15 +351,15 @@ void ConfigScreen::drawWiFiStatus(bool forceRedraw) {
 
 void ConfigScreen::drawConfigOptions(bool forceRedraw) {
     if (forceRedraw) {
-        // Draw configuration sections
+        // Draw configuration sections with tighter spacing for 320 height
         drawStatusSection(50, selectedSection == 0);
-        drawCommModeSection(85, selectedSection == 1);
-        drawWiFiSection(120, selectedSection == 2);
-        drawGPSSection(155, selectedSection == 3);
-        drawDisplaySection(190, selectedSection == 4);
-        drawBrightnessSection(225, selectedSection == 5);
-        drawDebugSection(260, selectedSection == 6);
-        drawInfoSection(295, selectedSection == 7);
+        drawCommModeSection(75, selectedSection == 1);
+        drawWiFiSection(100, selectedSection == 2);
+        drawGPSSection(125, selectedSection == 3);
+        drawDisplaySection(150, selectedSection == 4);
+        drawBrightnessSection(175, selectedSection == 5);
+        drawDebugSection(200, selectedSection == 6);
+        drawInfoSection(225, selectedSection == 7);
     }
 }
 
@@ -363,103 +373,131 @@ void ConfigScreen::drawScreenIndicator(bool forceRedraw) {
 }
 
 void ConfigScreen::drawStatusSection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    // Draw background
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     // Draw text
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("System Status", 20, y + 8);
+    display.drawString("System Status", 10, y + 6);
     
-    // Show current communication mode
+    // Show current communication mode with highlight if selected
     String commMode = isCANMode ? "CAN Active" : "Serial Active";
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    // Highlight only the value area
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString(commMode, 460, y + 8);
+    display.drawString(commMode, 465, y + 6);
 }
 
 void ConfigScreen::drawWiFiSection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("WiFi Settings", 20, y + 8);
+    display.drawString("WiFi Settings", 10, y + 6);
     
     String wifiMode = (WiFi.status() == WL_CONNECTED) ? "STA Mode" : "AP Mode";
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString(wifiMode, 460, y + 8);
+    display.drawString(wifiMode, 465, y + 6);
 }
 
 void ConfigScreen::drawDisplaySection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("Display Options", 20, y + 8);
+    display.drawString("Display Options", 10, y + 6);
     
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString("Theme & Layout", 460, y + 8);
+    display.drawString("Theme & Layout", 465, y + 6);
 }
 
 void ConfigScreen::drawBrightnessSection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("Brightness", 20, y + 8);
+    display.drawString("Brightness", 10, y + 6);
     
     String brightness = String((backlightBrightness * 100) / 255) + "%";
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString(brightness, 460, y + 8);
+    display.drawString(brightness, 465, y + 6);
 }
 
 void ConfigScreen::drawDebugSection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("Debug Mode", 20, y + 8);
+    display.drawString("Debug Mode", 10, y + 6);
     
     String debugStatus = debugMode ? "ON" : "OFF";
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString(debugStatus, 460, y + 8);
+    display.drawString(debugStatus, 465, y + 6);
 }
 
 void ConfigScreen::drawCommModeSection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("Communication", 20, y + 8);
+    display.drawString("Communication", 10, y + 6);
     
     // Show current communication mode and protocol/speed
     String commInfo;
@@ -474,25 +512,49 @@ void ConfigScreen::drawCommModeSection(int y, bool selected) {
         commInfo = "Serial " + mode;
     }
     
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString(commInfo, 460, y + 8);
+    display.drawString(commInfo, 465, y + 6);
 }
 
 void ConfigScreen::drawInfoSection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("System Info", 20, y + 8);
+    display.drawString("System Info", 10, y + 6);
     
     String freeHeap = String(ESP.getFreeHeap() / 1024) + "KB";
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString(freeHeap, 460, y + 8);
+    display.drawString(freeHeap, 465, y + 6);
+}
+
+void ConfigScreen::clearProgressArea() {
+    if (pressedSection != -1) {
+        int sectionY = 50 + (pressedSection * 25);
+        int progressY = sectionY + 20;
+        
+        // Clear progress bar area
+        display.fillRect(5, progressY, 470, 15, TFT_BLACK);
+    }
 }
 
 void ConfigScreen::drawPressProgress() {
@@ -507,8 +569,8 @@ void ConfigScreen::drawPressProgress() {
     uint8_t progress = (elapsed >= 3000) ? 100 : (uint8_t)((elapsed - 500) * 100 / 2500); // 2500ms = 100%
     
     // Draw progress bar at bottom of pressed section
-    int sectionY = 50 + (pressedSection * 35);
-    int progressY = sectionY + 25;
+    int sectionY = 50 + (pressedSection * 25);
+    int progressY = sectionY + 20;
     
     // Clear progress bar area
     display.fillRect(10, progressY, 460, 3, TFT_BLACK);
@@ -535,56 +597,17 @@ void ConfigScreen::drawPressProgress() {
     display.drawString(progressText, 240, progressY + 8);
 }
 
-void ConfigScreen::drawGPSStatus(bool forceRedraw) {
-    static String lastGPSStatus = "";
-    static uint32_t lastGPSUpdate = 0;
-    
-    // Update GPS status every 2 seconds or on force redraw
-    if (forceRedraw || (millis() - lastGPSUpdate > 2000)) {
-        String gpsStatus;
-        uint16_t statusColor;
-        
-        if (gpsEnabled) {
-            if (gpsDataValid) {
-                gpsStatus = "GPS: Connected (" + String(gpsNumSats) + " sats, " + String(gpsSpeed, 1) + " km/h)";
-                statusColor = TFT_GREEN;
-            } else {
-                gpsStatus = "GPS: Enabled (No valid data)";
-                statusColor = TFT_ORANGE;
-            }
-        } else {
-            gpsStatus = "GPS: Disabled (GT-U7 on GPIO25/26)";
-            statusColor = TFT_RED;
-        }
-        
-        if (forceRedraw || gpsStatus != lastGPSStatus) {
-            // Clear GPS status area (positioned between WiFi and bottom)
-            display.fillRect(10, 275, display.width() - 20, 25, TFT_BLACK);
-            
-            // Draw GPS status
-            display.loadFont(AA_FONT_SMALL);
-            display.setTextColor(statusColor, TFT_BLACK);
-            display.setTextDatum(TL_DATUM);
-            display.drawString(gpsStatus, 10, 280);
-            
-            lastGPSStatus = gpsStatus;
-        }
-        
-        lastGPSUpdate = millis();
-    }
-}
+
 
 void ConfigScreen::drawGPSSection(int y, bool selected) {
-    uint16_t bgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t textColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    display.fillRect(10, y, 460, 30, bgColor);
-    display.drawRect(10, y, 460, 30, TFT_WHITE);
+    // Draw background for entire row
+    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
+    display.drawRect(5, y, 470, 25, TFT_WHITE);
     
     display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(textColor, bgColor);
+    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
     display.setTextDatum(TL_DATUM);
-    display.drawString("GPS Module (GT-U7)", 20, y + 8);
+    display.drawString("GPS Module (GT-U7)", 10, y + 6);
     
     // Show GPS status
     String gpsInfo;
@@ -598,8 +621,16 @@ void ConfigScreen::drawGPSSection(int y, bool selected) {
         gpsInfo = "OFF";
     }
     
+    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
+    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
+    
+    if (selected) {
+        display.fillRect(320, y, 150, 25, valueBgColor);
+    }
+    
+    display.setTextColor(valueTextColor, valueBgColor);
     display.setTextDatum(TR_DATUM);
-    display.drawString(gpsInfo, 460, y + 8);
+    display.drawString(gpsInfo, 465, y + 6);
 }
 
 void ConfigScreen::toggleGPSMode() {

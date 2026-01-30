@@ -237,19 +237,21 @@ void TouchHandler::update() {
 }
 
 uint16_t TouchHandler::mapTouchX(uint16_t rawX) {
-  // Map raw X coordinate to screen X (0-480)
-  if (rawX <= calMinX) return 0;
-  if (rawX >= calMaxX) return 480;
+  // Map raw X coordinate to screen X with 10px margin for case frame (10-470)
+  if (rawX <= calMinX) return 10;
+  if (rawX >= calMaxX) return 470;
   
-  return map(rawX, calMinX, calMaxX, 0, 480);
+  uint16_t mapped = map(rawX, calMinX, calMaxX, 10, 470);
+  return constrain(mapped, 10, 470);
 }
 
 uint16_t TouchHandler::mapTouchY(uint16_t rawY) {
-  // Map raw Y coordinate to screen Y (0-320)
-  if (rawY <= calMinY) return 0;
-  if (rawY >= calMaxY) return 320;
+  // Map raw Y coordinate to screen Y with 10px margin for case frame (10-310)
+  if (rawY <= calMinY) return 10;
+  if (rawY >= calMaxY) return 310;
   
-  return map(rawY, calMinY, calMaxY, 0, 320);
+  uint16_t mapped = map(rawY, calMinY, calMaxY, 10, 310);
+  return constrain(mapped, 10, 310);
 }
 
 void TouchHandler::addTouchArea(uint16_t x, uint16_t y, uint16_t w, uint16_t h, 
@@ -543,13 +545,13 @@ void onBackTouch() {
 void setupTouchNavigation() {
   touchHandler.clearTouchAreas();
   
-  // Add navigation button areas (adjust coordinates based on your UI)
-  touchHandler.addTouchArea(10, 10, 60, 30, "Status", onStatusSectionTouch);
-  touchHandler.addTouchArea(80, 10, 60, 30, "WiFi", onWifiSectionTouch);
-  touchHandler.addTouchArea(150, 10, 60, 30, "Display", onDisplaySectionTouch);
-  touchHandler.addTouchArea(220, 10, 80, 30, "Brightness", onBrightnessSectionTouch);
-  touchHandler.addTouchArea(310, 10, 60, 30, "Debug", onDebugSectionTouch);
-  touchHandler.addTouchArea(380, 10, 50, 30, "Info", onInfoSectionTouch);
+  // Add navigation button areas (with 10px margin from frame)
+  touchHandler.addTouchArea(15, 15, 60, 30, "Status", onStatusSectionTouch);
+  touchHandler.addTouchArea(80, 15, 60, 30, "WiFi", onWifiSectionTouch);
+  touchHandler.addTouchArea(150, 15, 60, 30, "Display", onDisplaySectionTouch);
+  touchHandler.addTouchArea(220, 15, 80, 30, "Brightness", onBrightnessSectionTouch);
+  touchHandler.addTouchArea(310, 15, 60, 30, "Debug", onDebugSectionTouch);
+  touchHandler.addTouchArea(375, 15, 50, 30, "Info", onInfoSectionTouch);
   
   // Back button (bottom right)
   touchHandler.addTouchArea(420, 280, 50, 30, "Back", onBackTouch);
