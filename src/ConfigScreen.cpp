@@ -262,14 +262,15 @@ void ConfigScreen::adjustBrightness() {
     if (millis() - lastAdjust < 200) return; // Debounce
     lastAdjust = millis();
     
-    // Cycle through brightness levels: 25%, 50%, 75%, 100%
-    if (backlightBrightness < 64) {
+    // Cycle through brightness levels: 25% -> 50% -> 75% -> 100% -> 25%
+    // Using midpoints between levels for reliable detection
+    if (backlightBrightness < 96) {  // < midpoint(64, 128)
         backlightBrightness = 128; // 50%
-    } else if (backlightBrightness < 128) {
+    } else if (backlightBrightness < 160) {  // < midpoint(128, 192)
         backlightBrightness = 192; // 75%
-    } else if (backlightBrightness < 192) {
+    } else if (backlightBrightness < 224) {  // < midpoint(192, 255)
         backlightBrightness = 255; // 100%
-    } else {
+    } else {  // >= 224
         backlightBrightness = 64; // 25%
     }
     

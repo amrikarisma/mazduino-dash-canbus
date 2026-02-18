@@ -384,9 +384,13 @@ void setup()
   setupWebServer();
 
   // Initialize GPS handler for GT-U7
-  Serial.println("Initializing GPS handler (GT-U7)...");
-  gpsHandler.begin();
-  Serial.println("GPS handler initialized");
+  if (GPS_MODE_ENABLED) {
+    Serial.println("Initializing GPS handler (GT-U7)...");
+    gpsHandler.begin();
+    Serial.println("GPS handler initialized");
+  } else {
+    Serial.println("GPS mode disabled in configuration");
+  }
 
   // Initialize ESP-NOW for AC Controller communication
   Serial.println("Initializing ESP-NOW for AC Controller...");
@@ -474,32 +478,37 @@ void loop()
 #if ENABLE_SIMULATOR
   if (getSimulatorMode() == SIMULATOR_MODE_OFF) {
 #endif
-    // Update GPS data from GT-U7 module
-    gpsHandler.update();
+    // Update GPS data from GT-U7 module (only if GPS mode enabled)
+    if (GPS_MODE_ENABLED) {
+      gpsHandler.update();
+    }
     
     // Update AC controller data from ESP-NOW
     updateACControllerData();
     
     // Simple GPS status check
-    static uint32_t lastGPSStatusDebug = 0;
-    if (millis() - lastGPSStatusDebug > 10000) {
-      if (gpsEnabled) {
-        Serial.printf("[GPS] %s | Speed: %.1f km/h\n", 
-                      gpsDataValid ? "CONNECTED" : "SEARCHING", gpsSpeed);
-      }
-      // Print detailed AC status
-      if (acControllerEnabled) {
-        if (acDataReceived) {
-          Serial.printf("[AC] %.1f°C\n", acCurrentTemp);
-        } else {
-          Serial.println("[AC] No data");
+    if (GPS_MODE_ENABLED) {
+      static uint32_t lastGPSStatusDebug = 0;
+      if (millis() - lastGPSStatusDebug > 10000) {
+        if (gpsEnabled) {
+          Serial.printf("[GPS] %s | Speed: %.1f km/h\n", 
+                        gpsDataValid ? "CONNECTED" : "SEARCHING", gpsSpeed);
         }
+        lastGPSStatusDebug = millis();
       }
-      lastGPSStatusDebug = millis();
+    }
+    
+    // Print detailed AC status
+    if (acControllerEnabled) {
+      if (acDataReceived) {
+        Serial.printf("[AC] %.1f°C\n", acCurrentTemp);
+      } else {
+        Serial.println("[AC] No data");
+      }
     }
     
     // Update VSS with GPS speed if GPS data is valid
-    if (gpsEnabled && gpsDataValid) {
+    if (GPS_MODE_ENABLED && gpsEnabled && gpsDataValid) {
       // Use GPS speed directly without rounding up
       vss = (unsigned int)gpsSpeed; // Simple truncation instead of ceiling
       Serial.printf("[GPS] VSS set to %d (GPS speed: %.1f km/h)\n", vss, gpsSpeed);
@@ -516,7 +525,7 @@ void loop()
     }
     
     // Send GPS data to RusEFI ECU if enabled and valid
-    if (gpsEnabled && isCANMode && canProtocol == CAN_PROTOCOL_RUSEFI) {
+    if (GPS_MODE_ENABLED && gpsEnabled && isCANMode && canProtocol == CAN_PROTOCOL_RUSEFI) {
       sendGPSData();
     }
 

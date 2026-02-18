@@ -123,6 +123,7 @@ extern const char *password;
 #define SPLASH_SPINE 5
 #define SPLASH_JW 6
 #define SPLASH_BMW 7
+#define SPLASH_TJM 8
 
 // Build-time splash screen selection - change this to set default
 #ifndef BUILD_DEFAULT_SPLASH
@@ -172,5 +173,7 @@ extern const char *password;
 #define EEPROM_BRIGHTNESS_FLAG          0xAA
 #define EEPROM_SPEEDUINO_FLAG           0xBB
 #define EEPROM_AC_CONTROLLER_FLAG       0xCC
+
+#define GPS_MODE_ENABLED 0
 
 #endif // CONFIG_H

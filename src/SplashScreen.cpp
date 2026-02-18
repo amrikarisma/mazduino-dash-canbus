@@ -23,6 +23,8 @@
 #include "splash_image/zycas.h"
 #elif BUILD_DEFAULT_SPLASH == 5  // SPLASH_SPINE
 #include "splash_image/spine.h"
+#elif BUILD_DEFAULT_SPLASH == 8  // SPLASH_TJM
+#include "splash_image/tjm.h"
 #else
 // Default fallback to Mazduino
 #include "splash_image/mazduino.h"
@@ -32,20 +34,10 @@
 // External display object
 extern TFT_eSPI display;
 
-// Global splash screen selection variable
-int selectedSplashScreen = DEFAULT_SPLASH_SCREEN;
-
 void showAnimatedSplashScreen() {
   display.fillScreen(TFT_BLACK);
   
-  // Load splash screen preference from EEPROM
-  selectedSplashScreen = EEPROM.read(EEPROM_SPLASH_SCREEN_ADDR); // Use centralized EEPROM address
-  
-  // Force to build-time selected splash to save flash memory
-  // Runtime selection disabled to reduce flash usage
-  selectedSplashScreen = BUILD_DEFAULT_SPLASH;
-  
-  Serial.printf("[Splash] Build-time splash selection: %d\n", selectedSplashScreen);
+  Serial.printf("[Splash] Displaying splash image (build-time selection: %d)\n", BUILD_DEFAULT_SPLASH);
   
   // Display the selected image with color byte swapping for correct colors
   display.setSwapBytes(true);  // Enable byte swapping for RGB565 color correction
@@ -78,6 +70,9 @@ void showAnimatedSplashScreen() {
 #elif BUILD_DEFAULT_SPLASH == 5  // SPLASH_SPINE
   display.pushImage(0, 0, 480, 320, epd_bitmap_spine);
   Serial.println("[Splash] Displaying Spine splash");
+#elif BUILD_DEFAULT_SPLASH == 8  // SPLASH_TJM
+  display.pushImage(0, 0, 480, 320, epd_bitmap_tjm);
+  Serial.println("[Splash] Displaying TJM splash");
 #else
   // Default fallback to Mazduino (monochrome)
   display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
@@ -94,7 +89,7 @@ void showAnimatedSplashScreen() {
   
   // Gradual fade-in effect from completely off to target brightness
   for (int brightness = 0; brightness <= targetBrightness; brightness += 5) {
-    ledcWrite(BACKLIGHT_CHANNEL, brightness);
+    ledcWrite(BACKLIGHT_PIN, brightness);
     delay(50); // Smooth fade-in over ~2 seconds
   }
   
@@ -103,7 +98,7 @@ void showAnimatedSplashScreen() {
   
   // Quick fade out back to off
   for (int brightness = targetBrightness; brightness >= 0; brightness -= 10) {
-    ledcWrite(BACKLIGHT_CHANNEL, brightness);
+    ledcWrite(BACKLIGHT_PIN, brightness);
     delay(20);
   }
   
@@ -112,15 +107,13 @@ void showAnimatedSplashScreen() {
 }
 
 int getSplashScreenSelection() {
-  return selectedSplashScreen;
+  return BUILD_DEFAULT_SPLASH;
 }
 
 void setSplashScreenSelection(int selection) {
-  if (selection == SPLASH_MAZDUINO || selection == SPLASH_MERCY || selection == SPLASH_HEDON || selection == SPLASH_BIIES || selection == SPLASH_ZYCAS || selection == SPLASH_SPINE || selection == SPLASH_JW) {
-    selectedSplashScreen = selection;
-    EEPROM.write(EEPROM_SPLASH_SCREEN_ADDR, selection);
-    EEPROM.commit();
-  }
+  // Function kept for backward compatibility but no longer saves to EEPROM
+  // Splash screen selection is now compile-time only via BUILD_DEFAULT_SPLASH
+  Serial.println("[Splash] setSplashScreenSelection() is deprecated - use platformio.ini BUILD_DEFAULT_SPLASH");
 }
 
 // Legacy functions kept for compatibility
