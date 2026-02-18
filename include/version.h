@@ -6,18 +6,18 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 3
-#define VERSION_PATCH 4
-#define VERSION_BUILD 4
+#define VERSION_PATCH 5
+#define VERSION_BUILD 5
 
-#define VERSION_STRING "1.3.4"
-#define BUILD_DATE "2026-01-01"
-#define BUILD_TIME "21:53:53"
-#define BUILD_TIMESTAMP 1767279233
-#define BUILD_HASH "2cd510a+"
-#define BUILD_BRANCH "main"
+#define VERSION_STRING "1.3.5"
+#define BUILD_DATE "2026-02-18"
+#define BUILD_TIME "10:39:53"
+#define BUILD_TIMESTAMP 1771385993
+#define BUILD_HASH "8d08f1b+"
+#define BUILD_BRANCH "dev_touch"
 
 // Full version info
-#define FULL_VERSION_STRING "v1.3.4 (2cd510a+)"
-#define BUILD_INFO "Built on 2026-01-01 21:53:53"
+#define FULL_VERSION_STRING "v1.3.5 (8d08f1b+)"
+#define BUILD_INFO "Built on 2026-02-18 10:39:53"
 
 #endif // VERSION_H
