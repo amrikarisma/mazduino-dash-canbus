@@ -56,13 +56,16 @@ void drawData() {
   static uint32_t startupTime = millis();
   bool screenChanged = (lastScreen != currentScreen);
   
-  // Prevent immediate redraw after startup (give 2 seconds grace period)
-  if (displayInitialized && (millis() - startupTime < 2000) && !screenChanged) {
-    return;
+  // If display was just initialized, update lastScreen to current screen to prevent false screen change detection
+  if (displayInitialized && lastScreen == 255) {
+    lastScreen = currentScreen;
+    screenChanged = false; // No actual screen change, just initialization
+    Serial.printf("[Display] Initial screen sync: setting lastScreen to %d\n", currentScreen);
+    return; // Skip this cycle since startUpDisplay already handled the initial draw
   }
   
-  // Skip if display was just initialized in startUpDisplay to prevent double loading
-  if (!displayInitialized && screenChanged) {
+  // Prevent immediate redraw after startup (give 2 seconds grace period)
+  if (displayInitialized && (millis() - startupTime < 2000) && !screenChanged) {
     return;
   }
   

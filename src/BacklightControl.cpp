@@ -8,24 +8,23 @@ void setupBacklight(bool isInitialStartup) {
   // Load brightness from EEPROM
   loadBrightnessFromEEPROM();
   
-  // Setup LEDC channel using older ESP32 Arduino core API for compatibility
-  ledcSetup(BACKLIGHT_CHANNEL, BACKLIGHT_FREQ, BACKLIGHT_RESOLUTION);
-  ledcAttachPin(BACKLIGHT_PIN, BACKLIGHT_CHANNEL);
+  // Setup LEDC using modern ESP32 Arduino core API
+  ledcAttach(BACKLIGHT_PIN, BACKLIGHT_FREQ, BACKLIGHT_RESOLUTION);
   
   // If initial startup, set LED to OFF initially
   // so splash screen can fade from completely dark
   if (isInitialStartup) {
-    ledcWrite(BACKLIGHT_CHANNEL, 0); // Start completely off for smooth fade-in
+    ledcWrite(BACKLIGHT_PIN, 0); // Start completely off for smooth fade-in
     Serial.printf("Backlight initialized OFF for smooth splash fade-in (saved brightness: %d)\n", backlightBrightness);
   } else {
-    ledcWrite(BACKLIGHT_CHANNEL, backlightBrightness);
+    ledcWrite(BACKLIGHT_PIN, backlightBrightness);
     Serial.printf("Backlight initialized with brightness: %d\n", backlightBrightness);
   }
 }
 
 void setBacklightBrightness(uint8_t brightness) {
   backlightBrightness = brightness;
-  ledcWrite(BACKLIGHT_CHANNEL, brightness);
+  ledcWrite(BACKLIGHT_PIN, brightness);
   // Save to EEPROM whenever brightness is changed
   saveBrightnessToEEPROM();
 }
@@ -57,7 +56,7 @@ void loadBrightnessFromEEPROM() {
 
 void enableBacklightAfterSplash() {
   // Turn on backlight with saved brightness after splash screen
-  ledcWrite(BACKLIGHT_CHANNEL, backlightBrightness);
+  ledcWrite(BACKLIGHT_PIN, backlightBrightness);
   Serial.printf("Backlight enabled after splash screen with brightness: %d\n", backlightBrightness);
 }
 

@@ -30,8 +30,9 @@ void initESPNow() {
     return;
   }
   
-  // Register callback function for receiving data (older ESP-NOW API)
-  esp_now_register_recv_cb([](const uint8_t *mac_addr, const uint8_t *data, int len) {
+  // Register callback function for receiving data
+  esp_now_register_recv_cb([](const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
+    const uint8_t *mac_addr = recv_info->src_addr;
     onESPNowDataReceived(mac_addr, data, len);
   });
   
@@ -62,8 +63,9 @@ void reinitESPNowAfterWiFi() {
     return;
   }
   
-  // Re-register callback (older ESP-NOW API)
-  esp_now_register_recv_cb([](const uint8_t *mac_addr, const uint8_t *data, int len) {
+  // Re-register callback
+  esp_now_register_recv_cb([](const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
+    const uint8_t *mac_addr = recv_info->src_addr;
     onESPNowDataReceived(mac_addr, data, len);
   });
   
