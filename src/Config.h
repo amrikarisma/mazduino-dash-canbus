@@ -124,6 +124,7 @@ extern const char *password;
 #define SPLASH_JW 6
 #define SPLASH_BMW 7
 #define SPLASH_TJM 8
+#define SPLASH_GT_PERFORMANCE 9
 
 // Build-time splash screen selection - change this to set default
 #ifndef BUILD_DEFAULT_SPLASH

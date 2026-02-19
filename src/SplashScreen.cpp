@@ -25,6 +25,8 @@
 #include "splash_image/spine.h"
 #elif BUILD_DEFAULT_SPLASH == 8  // SPLASH_TJM
 #include "splash_image/tjm.h"
+#elif BUILD_DEFAULT_SPLASH == 9  // SPLASH_GT_PERFORMANCE
+#include "splash_image/gt_performance.h"
 #else
 // Default fallback to Mazduino
 #include "splash_image/mazduino.h"
@@ -73,6 +75,9 @@ void showAnimatedSplashScreen() {
 #elif BUILD_DEFAULT_SPLASH == 8  // SPLASH_TJM
   display.pushImage(0, 0, 480, 320, epd_bitmap_tjm);
   Serial.println("[Splash] Displaying TJM splash");
+#elif BUILD_DEFAULT_SPLASH == 9  // SPLASH_GT_PERFORMANCE
+  display.pushImage(0, 0, 480, 320, epd_bitmap_gt_performance);
+  Serial.println("[Splash] Displaying GT Performance splash");
 #else
   // Default fallback to Mazduino (monochrome)
   display.drawBitmap(0, 0, epd_bitmap_mazduino_invert, 480, 320, TFT_WHITE, TFT_BLACK);
