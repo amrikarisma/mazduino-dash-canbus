@@ -491,6 +491,34 @@ const char *uploadPage PROGMEM = R"rawliteral(
         });
       }
       
+      // Panel options - stored once to save flash memory (instead of repeating 8 times in HTML)
+      const PANEL_OPTIONS = `
+        <option value="disabled">Disabled</option>
+        <option value="0">IAT</option>
+        <option value="1">Coolant</option>
+        <option value="2">AFR</option>
+        <option value="3">ADV</option>
+        <option value="4">Trigger</option>
+        <option value="5">TPS</option>
+        <option value="6">Voltage</option>
+        <option value="7">MAP</option>
+        <option value="8">Boost</option>
+        <option value="9">Oil Temp</option>
+        <option value="10">Oil Pressure</option>
+        <option value="11">RPM</option>
+        <option value="12">FP</option>
+        <option value="13">VSS</option>
+        <option value="15">AC Temp</option>
+      `;
+      
+      function initializePanelOptions() {
+        // Populate all 8 panel dropdowns with same options
+        for (let i = 0; i < 8; i++) {
+          const select = document.getElementById('panel' + i);
+          if (select) select.innerHTML = PANEL_OPTIONS;
+        }
+      }
+      
       function updateIndicatorConfig(indicator) {
         const checkbox = document.getElementById('ind' + indicator);
         const enabled = checkbox.checked;
@@ -942,6 +970,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
       
       // Load display config on page load
       window.onload = function() {
+        initializePanelOptions(); // Populate dropdown options from variable
         loadDisplayConfig();
         loadCanProtocol();
         loadSplashScreen();
@@ -1160,148 +1189,36 @@ const char *uploadPage PROGMEM = R"rawliteral(
         <h3>Data Panels</h3>
         <div class="config-grid">
           <div class="config-item">
-            <label>Position 1 (Left-Top):</label>
-            <select id="panel0" onchange="updatePanelConfig(0)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 1:</label>
+            <select id="panel0" onchange="updatePanelConfig(0)"></select>
           </div>
           <div class="config-item">
-            <label>Position 2 (Left-Middle):</label>
-            <select id="panel1" onchange="updatePanelConfig(1)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 2:</label>
+            <select id="panel1" onchange="updatePanelConfig(1)"></select>
           </div>
           <div class="config-item">
-            <label>Position 3 (Left-Bottom):</label>
-            <select id="panel2" onchange="updatePanelConfig(2)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 3:</label>
+            <select id="panel2" onchange="updatePanelConfig(2)"></select>
           </div>
           <div class="config-item">
-            <label>Position 4 (Right-Top):</label>
-            <select id="panel3" onchange="updatePanelConfig(3)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 4:</label>
+            <select id="panel3" onchange="updatePanelConfig(3)"></select>
           </div>
           <div class="config-item">
-            <label>Position 5 (Right-Middle):</label>
-            <select id="panel4" onchange="updatePanelConfig(4)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 5:</label>
+            <select id="panel4" onchange="updatePanelConfig(4)"></select>
           </div>
           <div class="config-item">
-            <label>Position 6 (Right-Bottom):</label>
-            <select id="panel5" onchange="updatePanelConfig(5)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 6:</label>
+            <select id="panel5" onchange="updatePanelConfig(5)"></select>
           </div>
           <div class="config-item">
-            <label>Position 7 (Bottom-Left):</label>
-            <select id="panel6" onchange="updatePanelConfig(6)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 7:</label>
+            <select id="panel6" onchange="updatePanelConfig(6)"></select>
           </div>
           <div class="config-item">
-            <label>Position 8 (Bottom-Right):</label>
-            <select id="panel7" onchange="updatePanelConfig(7)">
-              <option value="disabled">Disabled</option>
-              <option value="0">IAT</option>
-              <option value="1">Coolant</option>
-              <option value="2">AFR</option>
-              <option value="3">ADV</option>
-              <option value="4">Trigger</option>
-              <option value="5">TPS</option>
-              <option value="6">Voltage</option>
-              <option value="7">MAP</option>
-              <option value="8">RPM</option>
-              <option value="9">FP</option>
-              <option value="10">VSS</option>
-              <option value="15">AC Temp</option>
-            </select>
+            <label>Position 8:</label>
+            <select id="panel7" onchange="updatePanelConfig(7)"></select>
           </div>
         </div>
         
@@ -1323,7 +1240,9 @@ const char *uploadPage PROGMEM = R"rawliteral(
           <ul><li><strong>Data Panels:</strong> Choose which engine data to display in each position</li>
           <li><strong>Status Indicators:</strong> Select which status indicators to show at bottom</li>
           <li><strong>Layout:</strong> 8 data panels (4 top, 4 bottom) + indicator bar</li>
-          <li><strong>Data Types:</strong> Float (AFR, Voltage), Integer (TPS, MAP, etc.), Boolean (indicators)</li></ul>
+          <li><strong>Data Types:</strong> Float (AFR, Voltage, Boost, Oil Temp, Oil Pressure), Integer (TPS, MAP, etc.), Boolean (indicators)</li>
+          <li><strong>Boost:</strong> Displays turbo/supercharger boost pressure in bar (calculated from (MAP - 101) / 100)</li>
+          <li><strong>Oil Monitoring:</strong> Oil temperature (°C) and oil pressure (kPa) for engine protection</li></ul>
           <br>
           Configuration is saved to device memory and persists across restarts.
         </p>
@@ -1996,6 +1915,19 @@ void startWebServer()
                         currentDisplayConfig.panels[position].dataType = DATA_TYPE_FLOAT;
                         currentDisplayConfig.panels[position].decimals = 1;
                         Serial.printf("[WebServer] Panel %d: Set as FLOAT with 1 decimal\n", position);
+                        break;
+                      case DATA_SOURCE_BOOST:
+                        // Boost in bar - needs 2 decimals to show 0.00-2.00 bar accurately
+                        currentDisplayConfig.panels[position].dataType = DATA_TYPE_FLOAT;
+                        currentDisplayConfig.panels[position].decimals = 2;
+                        Serial.printf("[WebServer] Panel %d: Set as FLOAT with 2 decimals (Boost)\n", position);
+                        break;
+                      case DATA_SOURCE_OIL_TEMP:
+                      case DATA_SOURCE_OIL_PRESSURE:
+                        // Oil monitoring - use float for accuracy
+                        currentDisplayConfig.panels[position].dataType = DATA_TYPE_FLOAT;
+                        currentDisplayConfig.panels[position].decimals = 1;
+                        Serial.printf("[WebServer] Panel %d: Set as FLOAT with 1 decimal (Oil)\n", position);
                         break;
                       case DATA_SOURCE_IAT:
                       case DATA_SOURCE_COOLANT:

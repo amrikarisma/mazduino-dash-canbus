@@ -126,7 +126,7 @@ void updateSimulatorData() {
   // Generate correlated sensor data based on RPM
   if (rpm == 0) {
     // Engine off
-    mapData = 30;  // Atmospheric pressure
+    mapData = 101;  // Atmospheric pressure (101 kPa)
     tps = 0;       // Throttle closed
     adv = 0;       // No advance
     afrConv = 14.7; // Stoichiometric
@@ -137,6 +137,8 @@ void updateSimulatorData() {
     // Temperature sensors (engine off values)
     clt = 25;      // Ambient temp
     iat = 25;      // Ambient temp
+    oilTemp = 25;  // Ambient oil temp
+    oilPressure = 0; // No oil pressure when engine off
     bat = 12.8;    // Resting battery voltage
     
     // All indicators off
@@ -150,8 +152,23 @@ void updateSimulatorData() {
     dfco = false;
   } else {
     // Engine running - generate realistic values
-    mapData = map(rpm, 800, 8000, 35, 95);  // 35-95 kPa MAP
     tps = map(rpm, 800, 8000, 5, 85);       // 5-85% TPS
+    
+    // Calculate MAP based on RPM and throttle (simulating turbo)
+    // Turbo starts spooling at ~2000 RPM
+    if (rpm < 2000) {
+      // Naturally aspirated range - vacuum to atmospheric
+      mapData = map(rpm, 800, 2000, 35, 101);  // 35-101 kPa (vacuum to atmospheric)
+    } else {
+      // Turbo active - boost builds with RPM and throttle
+      int rawBoost = map(rpm, 2000, 8000, 0, 120);  // 0-120 kPa boost gauge
+      // Throttle affects boost response
+      int boost = (rawBoost * tps) / 100;  // Scale by throttle position
+      boost = constrain(boost, 0, 120);  // Max 120 kPa (~17.5 PSI) gauge
+      
+      // MAP is atmospheric (101 kPa) + boost
+      mapData = 101 + boost;
+    }
     adv = map(rpm, 800, 8000, 10, 35);      // 10-35° advance
     
     // AFR varies with load
@@ -170,6 +187,8 @@ void updateSimulatorData() {
     // Temperature sensors (engine running)
     clt = map(rpm, 800, 8000, 85, 105);     // 85-105°C coolant
     iat = map(rpm, 800, 8000, 30, 55);     // 30-55°C intake air
+    oilTemp = map(rpm, 800, 8000, 80, 115); // 80-115°C oil temp (normally hotter than coolant)
+    oilPressure = map(rpm, 800, 8000, 150, 450); // 150-450 kPa oil pressure (increases with RPM)
     bat = 14.2;                            // Charging voltage
     
     // Engine indicators based on RPM
@@ -186,11 +205,13 @@ void updateSimulatorData() {
   // Add some realistic noise/variation
   if (rpm > 0) {
     rpm += random(-10, 10);
-    mapData += random(-2, 2);
+    mapData += random(-2, 2);               // ±2 kPa MAP variation (includes boost)
     afrConv += (random(-20, 20) / 100.0);   // ±0.2 AFR variation
     bat += (random(-5, 5) / 100.0);         // ±0.05V variation
     tps += random(-2, 2);                   // ±2% TPS variation
     adv += random(-1, 1);                   // ±1° advance variation
+    oilTemp += (random(-10, 10) / 10.0);    // ±1°C oil temp variation
+    oilPressure += random(-5, 5);           // ±5 kPa oil pressure variation
     
     // Ensure values stay within realistic bounds
     // Don't constrain RPM too tightly in sweep mode to allow proper cycling
@@ -199,18 +220,21 @@ void updateSimulatorData() {
     } else {
       rpm = constrain(rpm, 0, 7000);
     }
-    mapData = constrain(mapData, 20, 105);
+    mapData = constrain(mapData, 20, 250);  // Allow turbo MAP values (20-250 kPa)
     afrConv = constrain(afrConv, 10.0, 18.0);
     bat = constrain(bat, 11.0, 15.0);
     tps = constrain(tps, 0, 100);
     adv = constrain(adv, -5, 40);
+    oilTemp = constrain(oilTemp, 40, 140);     // 40-140°C oil temp range
+    oilPressure = constrain(oilPressure, 50, 600); // 50-600 kPa oil pressure range
   }
   
   // Print current values every 2 seconds
   static uint32_t lastPrint = 0;
   if (currentTime - lastPrint > 2000) {
-    Serial.printf("[SIM] RPM:%d MAP:%d TPS:%d AFR:%.1f BAT:%.1f VSS:%d TriggerErr:%d\n", 
-                  rpm, mapData, tps, afrConv, bat, vss, triggerError);
+    float boost = (mapData - 101) / 100.0;  // Calculate boost in bar for display
+    Serial.printf("[SIM] RPM:%d MAP:%d BOOST:%.2fbar TPS:%d OilT:%.1f OilP:%.0f AFR:%.1f BAT:%.1f VSS:%d\n", 
+                  rpm, mapData, boost, tps, oilTemp, oilPressure, afrConv, bat, vss);
     
     // Extra debug for RPM sweep mode
     if (simulatorMode == SIMULATOR_MODE_RPM_SWEEP) {

@@ -170,7 +170,15 @@ float getDataValue(uint8_t dataSource) {
     case DATA_SOURCE_VOLTAGE:
       return bat;
     case DATA_SOURCE_MAP:
-      return (float)mapData;
+      return (float)mapData;  // Manifold Absolute Pressure - also usable for turbo boost monitoring
+    case DATA_SOURCE_BOOST:
+      // Boost is gauge pressure in bar: (MAP - Atmospheric) / 100
+      // 1 bar = 100 kPa gauge pressure
+      return (float)(mapData - 101) / 100.0;  // Return float in bar (e.g., 0.5 bar, 1.2 bar)
+    case DATA_SOURCE_OIL_TEMP:
+      return oilTemp;  // Oil temperature in °C
+    case DATA_SOURCE_OIL_PRESSURE:
+      return oilPressure;  // Oil pressure in kPa
     case DATA_SOURCE_RPM:
       return (float)rpm;
     case DATA_SOURCE_FP:
@@ -231,6 +239,9 @@ const char* getDataSourceName(uint8_t dataSource) {
     case DATA_SOURCE_TPS: return "TPS";
     case DATA_SOURCE_VOLTAGE: return "Voltage";
     case DATA_SOURCE_MAP: return "MAP";
+    case DATA_SOURCE_BOOST: return "Boost";
+    case DATA_SOURCE_OIL_TEMP: return "Oil Temp";
+    case DATA_SOURCE_OIL_PRESSURE: return "Oil Pres";
     case DATA_SOURCE_RPM: return "RPM";
     case DATA_SOURCE_FP: return "FP";
     case DATA_SOURCE_VSS: return "VSS";
@@ -260,6 +271,23 @@ const char* getIndicatorName(uint8_t indicator) {
 
 uint16_t getDataSourceColor(uint8_t dataSource, float value) {
   switch (dataSource) {
+    // case DATA_SOURCE_BOOST:
+    //   // Boost pressure color coding in bar: Green normal, Yellow caution, Red overboost
+    //   if (value < -0.2) return TFT_BLUE;        // Vacuum (< -0.2 bar)
+    //   else if (value < 0.5) return TFT_GREEN;   // Normal low boost (< 0.5 bar)
+    //   else if (value < 1.0) return TFT_YELLOW;  // Moderate boost (0.5-1.0 bar, caution)
+    //   else return TFT_RED;                       // High boost (> 1.0 bar, warning)
+    // case DATA_SOURCE_OIL_TEMP:
+    //   // Oil temperature color coding: Cold=Blue, Normal=Green, Hot=Yellow, Critical=Red
+    //   if (value < 60) return TFT_BLUE;       // Cold oil
+    //   else if (value < 110) return TFT_GREEN;  // Normal operating temp
+    //   else if (value < 130) return TFT_YELLOW; // Hot (caution)
+    //   else return TFT_RED;                      // Critical (warning)
+    // case DATA_SOURCE_OIL_PRESSURE:
+    //   // Oil pressure color coding: Low=Red, Normal=Green, High=Yellow
+    //   if (value < 100) return TFT_RED;         // Low pressure (warning)
+    //   else if (value < 400) return TFT_GREEN;  // Normal pressure
+    //   else return TFT_YELLOW;                   // High pressure (caution)
     // case DATA_SOURCE_AFR:
     //   return (value < 13.0) ? TFT_ORANGE : ((value > 14.7) ? TFT_RED : TFT_GREEN);
     // case DATA_SOURCE_COOLANT:

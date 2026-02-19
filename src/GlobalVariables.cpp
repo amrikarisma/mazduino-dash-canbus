@@ -18,6 +18,7 @@ unsigned int rpm = 0, lastRpm, vss = 0;
 int mapData, tps, adv, fp, triggerError = 0;
 float bat = 0.0, afrConv = 0.0;
 bool syncStatus, fan, ase, wue, rev, launch, airCon, dfco;
+// Note: boost is calculated from mapData (boost = mapData - 101 kPa)
 
 // Additional variables for RusEFI protocol
 float oilPressure = 0.0, oilTemp = 0.0, fuelLevel = 0.0, fuelTemp = 0.0;

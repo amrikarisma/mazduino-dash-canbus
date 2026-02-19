@@ -9,6 +9,7 @@ extern uint8_t refreshRate;
 extern unsigned int rpm, lastRpm, vss;
 extern int mapData, tps, adv, fp, triggerError;
 extern float bat, afrConv;
+// Note: boost is calculated from mapData (boost = mapData - 101 kPa atmospheric)
 extern bool syncStatus, fan, ase, wue, rev, launch, airCon, dfco;
 
 // Additional variables for RusEFI protocol

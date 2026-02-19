@@ -51,7 +51,8 @@ void handleSerialCommunication() {
   tps = getByte(24) / 2.0;
   adv = (int8_t)getByte(23);
   fp = getByte(103);
-  
+  oilPressure = getByte(104);
+  fuelTemp = getByte(111);
   // Only update VSS from ECU if GPS is not providing valid speed data
   if (!gpsEnabled || !gpsDataValid) {
     vss = getWord(100);

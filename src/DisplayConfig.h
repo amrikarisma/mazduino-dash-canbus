@@ -20,7 +20,10 @@ enum DataSource {
   DATA_SOURCE_TRIGGER,
   DATA_SOURCE_TPS,
   DATA_SOURCE_VOLTAGE,
-  DATA_SOURCE_MAP,
+  DATA_SOURCE_MAP,           // MAP - Manifold Absolute Pressure (also works for turbo monitoring)
+  DATA_SOURCE_BOOST,         // BOOST - Turbo/Supercharger boost pressure (gauge pressure)
+  DATA_SOURCE_OIL_TEMP,      // Oil Temperature in °C
+  DATA_SOURCE_OIL_PRESSURE,  // Oil Pressure in kPa
   DATA_SOURCE_RPM,
   DATA_SOURCE_FP,
   DATA_SOURCE_VSS,

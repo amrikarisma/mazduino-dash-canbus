@@ -98,8 +98,8 @@ void handleHaltechCAN(CAN_FRAME &can_message) {
         case 0x361: {
           uint16_t fuel_pressure = (can_message.data.byte[0] << 8) | can_message.data.byte[1];
           fp = fuel_pressure / 10 - 101.3;
-          uint16_t oil_pressure = (can_message.data.byte[2] << 8) | can_message.data.byte[3];
-          // op = oil_pressure / 10 - 101.3;
+          uint16_t oil_pressure_raw = (can_message.data.byte[2] << 8) | can_message.data.byte[3];
+          oilPressure = oil_pressure_raw / 10 - 101.3;
           // uint16_t wastegate_pressure = (can_message.data.byte[6] << 8) | can_message.data.byte[7];
           // wp = wastegate_pressure / 10 - 101.3;
           break;
