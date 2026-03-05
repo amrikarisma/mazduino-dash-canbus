@@ -4,11 +4,30 @@
 #include "BenchScreen.h"
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
-#include <SPI.h>
 #include <math.h>
 
-// Create dedicated SPI instance for touch
-SPIClass touchSPI(HSPI);
+#ifndef USE_FT6236_TOUCH
+  #include <SPI.h>
+  // Create dedicated SPI instance for touch
+  SPIClass touchSPI(HSPI);
+#else
+  #include <Wire.h>
+#endif
+
+namespace {
+#ifdef USE_FT6236_TOUCH
+  constexpr uint16_t FT_PORTRAIT_WIDTH = 320;
+  constexpr uint16_t FT_PORTRAIT_HEIGHT = 480;
+
+  void mapFT6236ToLandscape(const TS_Point& rawPoint, uint16_t& x, uint16_t& y) {
+    uint16_t portraitX = constrain(map(rawPoint.x, TOUCH_MAX_X, TOUCH_MIN_X, 0, FT_PORTRAIT_WIDTH - 1), 0, FT_PORTRAIT_WIDTH - 1);
+    uint16_t portraitY = constrain(map(rawPoint.y, TOUCH_MAX_Y, TOUCH_MIN_Y, 0, FT_PORTRAIT_HEIGHT - 1), 0, FT_PORTRAIT_HEIGHT - 1);
+
+    x = portraitY;
+    y = (FT_PORTRAIT_WIDTH - 1) - portraitX;
+  }
+#endif
+}
 
 // Global touch handler instance
 TouchHandler touchHandler;
@@ -22,7 +41,11 @@ extern bool debugMode;
 extern BenchScreen benchScreen;
 
 TouchHandler::TouchHandler() :
+#ifdef USE_FT6236_TOUCH
+  touchFT(nullptr),
+#else
   touch(nullptr),
+#endif
   lastTouchTime(0),
   debounceDelay(20), // Reduced from 50ms to 20ms
   swipeStarted(false),
@@ -45,14 +68,42 @@ TouchHandler::TouchHandler() :
 }
 
 TouchHandler::~TouchHandler() {
+#ifdef USE_FT6236_TOUCH
+  if (touchFT) {
+    delete touchFT;
+  }
+#else
   if (touch) {
     delete touch;
   }
+#endif
   clearTouchAreas();
 }
 
 bool TouchHandler::begin() {
-  Serial.println("[Touch] Initializing XPT2046 touchscreen...");
+#ifdef USE_FT6236_TOUCH
+  Serial.println("[Touch] Initializing FT6236 capacitive touchscreen for KMRTM35018 (I2C)...");
+  Serial.printf("[Touch] Pin mapping - SDA:%d, SCL:%d\n", 
+                FT6236_SDA, FT6236_SCL);
+
+  // Delay to ensure ESP32 boot sequence is complete before I2C touch init
+  delay(250);
+  
+  // Initialize FT6236 touch controller
+  touchFT = new FT6236();
+  
+  // FT6236 fork API: begin(threshold, SDA, SCL)
+  if (!touchFT->begin(40, FT6236_SDA, FT6236_SCL)) {
+    Serial.println("[Touch] ERROR: FT6236 not found! Check wiring.");
+    delete touchFT;
+    touchFT = nullptr;
+    return false;
+  }
+  
+  Serial.println("[Touch] FT6236 capacitive touchscreen initialized successfully");
+  
+#else
+  Serial.println("[Touch] Initializing XPT2046 resistive touchscreen (SPI)...");
   
   // Initialize dedicated SPI bus for touch
   touchSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
@@ -70,19 +121,115 @@ bool TouchHandler::begin() {
   // Set rotation to match display
   touch->setRotation(1); // Landscape mode
   
+  Serial.println("[Touch] XPT2046 resistive touchscreen initialized successfully");
+#endif
+  
   // Load calibration data from EEPROM
   loadCalibration();
   
-  Serial.println("[Touch] XPT2046 touchscreen initialized successfully");
-  Serial.printf("[Touch] Calibration: X(%d-%d) Y(%d-%d)\\n", 
+  Serial.printf("[Touch] Calibration: X(%d-%d) Y(%d-%d)\n", 
                 calMinX, calMaxX, calMinY, calMaxY);
   
   return true;
 }
 
-TouchEvent TouchHandler::readTouch() {
-  TouchEvent event = {0, 0, false, millis(), false};
+ECUTouchEvent TouchHandler::readTouch() {
+  ECUTouchEvent event = {0, 0, false, millis(), false};
   
+#ifdef USE_FT6236_TOUCH
+  if (!touchFT) {
+    static uint32_t lastNoTouchPrint = 0;
+    if (millis() - lastNoTouchPrint > 5000) {
+      Serial.println("[Touch] ERROR: FT6236 touch object is null!");
+      lastNoTouchPrint = millis();
+    }
+    return event;
+  }
+  
+  static bool wasTouched = false;
+  static uint32_t stableCoordTime = 0;
+  static uint16_t stableX = 0, stableY = 0;
+  static uint8_t stableCount = 0;
+  
+  // Check if screen is being touched
+  if (!touchFT->touched()) {
+    // No touch detected
+    if (wasTouched) {
+      // Touch was just released - return valid release event
+      event.x = lastTouch.x;
+      event.y = lastTouch.y;
+      event.pressed = false;
+      event.timestamp = millis();
+      event.isValid = true;
+      wasTouched = false;
+      stableCount = 0;
+      lastTouchTime = millis();
+      return event;
+    }
+    stableCount = 0;
+    return event; // No touch, return invalid event
+  }
+  
+  // Get touch point from FT6236
+  TS_Point p = touchFT->getPoint();
+  
+  uint16_t mappedX = 0;
+  uint16_t mappedY = 0;
+  mapFT6236ToLandscape(p, mappedX, mappedY);
+
+  static uint32_t lastDiagLog = 0;
+  if (millis() - lastDiagLog > 500) {
+    Serial.printf("[FT6236] Raw(%d,%d) -> Screen(%d,%d)\n",
+                  p.x, p.y, mappedX, mappedY);
+    lastDiagLog = millis();
+  }
+  
+  // Stability check: coordinates should be stable for multiple readings
+  if (abs((int)mappedX - (int)stableX) <= 10 && abs((int)mappedY - (int)stableY) <= 10) {
+    stableCount++;
+  } else {
+    stableX = mappedX;
+    stableY = mappedY;
+    stableCount = 1;
+    stableCoordTime = millis();
+  }
+  
+  bool isStableTouch = (stableCount >= 2);
+  
+  // Touch detected - apply debounce only for new touches
+  if (!wasTouched) {
+    // New touch started
+    if (millis() - lastTouchTime < debounceDelay) {
+      return event; // Still in debounce period
+    }
+    Serial.printf("[Touch] FT6236 NEW TOUCH! Raw: (%d,%d), Mapped: (%d,%d)\n", 
+                  p.x, p.y, mappedX, mappedY);
+    wasTouched = true;
+  }
+  
+  event.x = mappedX;
+  event.y = mappedY;
+  event.pressed = true;
+  event.timestamp = millis();
+  event.isValid = isStableTouch;
+  
+  // Reduce debug output frequency
+  static uint8_t debugCounter = 0;
+  static uint16_t lastDebugX = 0, lastDebugY = 0;
+  
+  if (debugCounter++ % 50 == 0 || abs((int)event.x - (int)lastDebugX) > 30 || abs((int)event.y - (int)lastDebugY) > 30) {
+    Serial.printf("[Touch] (%d,%d)\n", event.x, event.y);
+    lastDebugX = event.x;
+    lastDebugY = event.y;
+  }
+  
+  lastTouch = event;
+  lastTouchTime = millis();
+  
+  return event;
+  
+#else
+  // XPT2046 resistive touch code
   if (!touch) {
     static uint32_t lastNoTouchPrint = 0;
     if (millis() - lastNoTouchPrint > 5000) {
@@ -95,20 +242,12 @@ TouchEvent TouchHandler::readTouch() {
   // Get raw touch coordinates
   TS_Point p = touch->getPoint();
   
-  // Debug: Print pressure values occasionally  
-  static uint32_t lastPressureDebug = 0;
-  static uint16_t pressureDebugCounter = 0;
-  if (++pressureDebugCounter % 1000 == 0 || millis() - lastPressureDebug > 3000) {
-    Serial.printf("[Touch] Current pressure: %d (threshold: 600)\n", p.z);
-    lastPressureDebug = millis();
-  }
-  
   static bool wasTouched = false;
   static uint32_t stableCoordTime = 0;
   static uint16_t stableX = 0, stableY = 0;
   static uint8_t stableCount = 0;
   
-  if (p.z < 600) { // Increased from 100 to 600 to reduce phantom touches
+  if (p.z < TOUCH_PRESSURE_THRESHOLD) {
     // No touch detected
     if (wasTouched) {
       // Touch was just released - return valid release event
@@ -156,7 +295,7 @@ TouchEvent TouchHandler::readTouch() {
     if (millis() - lastTouchTime < debounceDelay) {
       return event; // Still in debounce period
     }
-    Serial.printf("[Touch] NEW TOUCH detected! Pressure: %d, Raw: (%d,%d), Mapped: (%d,%d)\n", 
+    Serial.printf("[Touch] XPT2046 NEW TOUCH! Pressure: %d, Raw: (%d,%d), Mapped: (%d,%d)\n", 
                   p.z, p.x, p.y, mappedX, mappedY);
     wasTouched = true;
   }
@@ -183,19 +322,36 @@ TouchEvent TouchHandler::readTouch() {
   lastTouchTime = millis();
   
   return event;
+#endif
 }
 
-TouchEvent TouchHandler::readTouchRaw() {
+ECUTouchEvent TouchHandler::readTouchRaw() {
   // Raw touch reading for swipe detection - bypasses stability filtering
-  TouchEvent event = {0, 0, false, millis(), false};
+  ECUTouchEvent event = {0, 0, false, millis(), false};
   
+#ifdef USE_FT6236_TOUCH
+  if (!touchFT || !touchFT->touched()) {
+    return event;
+  }
+  
+  TS_Point p = touchFT->getPoint();
+  
+  // Map coordinates directly without stability check
+  mapFT6236ToLandscape(p, event.x, event.y);
+  event.pressed = true;
+  event.timestamp = millis();
+  event.isValid = true;
+  
+  return event;
+  
+#else
   if (!touch) {
     return event;
   }
   
   TS_Point p = touch->getPoint();
   
-  if (p.z < 600) {
+  if (p.z < TOUCH_PRESSURE_THRESHOLD) {
     // No touch detected
     return event;
   }
@@ -208,19 +364,24 @@ TouchEvent TouchHandler::readTouchRaw() {
   event.isValid = true;
   
   return event;
+#endif
 }
 
 bool TouchHandler::isTouched() {
+#ifdef USE_FT6236_TOUCH
+  return touchFT && touchFT->touched();
+#else
   return touch && touch->touched();
+#endif
 }
 
 void TouchHandler::update() {
-  TouchEvent event = readTouch();
+  ECUTouchEvent event = readTouch();
   
   // Always pass event to navigation handler for swipe detection (even if not stable)
   if (event.pressed || (!event.pressed && lastTouch.pressed)) {
     // Pass both stable and unstable touches to navigation for swipe detection
-    TouchEvent navEvent = event;
+    ECUTouchEvent navEvent = event;
     navEvent.isValid = true;  // Always valid for navigation
     // Navigation handler will be called from main.cpp with this event
   }
@@ -317,7 +478,33 @@ void TouchHandler::calibrate() {
   display.drawString("Touch top-left corner", 10, 10);
   display.fillCircle(30, 30, 5, TFT_RED);
   
-  // Wait for touch
+#ifdef USE_FT6236_TOUCH
+  // Wait for touch (FT6236)
+  while (!touchFT->touched()) {
+    delay(50);
+  }
+  
+  TS_Point p1 = touchFT->getPoint();
+  calMinX = p1.x;
+  calMinY = p1.y;
+  
+  delay(1000); // Debounce
+  
+  // Bottom-right calibration point  
+  display.fillScreen(TFT_BLACK);
+  display.drawString("Touch bottom-right corner", 10, 10);
+  display.fillCircle(450, 290, 5, TFT_RED);
+  
+  while (!touchFT->touched()) {
+    delay(50);
+  }
+  
+  TS_Point p2 = touchFT->getPoint();
+  calMaxX = p2.x;
+  calMaxY = p2.y;
+  
+#else
+  // Wait for touch (XPT2046)
   while (!touch->touched()) {
     delay(50);
   }
@@ -340,6 +527,7 @@ void TouchHandler::calibrate() {
   TS_Point p2 = touch->getPoint();
   calMaxX = p2.x;
   calMaxY = p2.y;
+#endif
   
   // Save calibration
   isCalibrated = true;
@@ -348,7 +536,7 @@ void TouchHandler::calibrate() {
   display.fillScreen(TFT_BLACK);
   display.drawString("Calibration complete!", 10, 150);
   
-  Serial.printf("[Touch] Calibration complete: X(%d-%d) Y(%d-%d)\\n", 
+  Serial.printf("[Touch] Calibration complete: X(%d-%d) Y(%d-%d)\n", 
                 calMinX, calMaxX, calMinY, calMaxY);
   
   delay(2000);
@@ -396,8 +584,6 @@ void TouchHandler::setCalibrationData(uint16_t minX, uint16_t maxX,
 }
 
 void TouchHandler::printTouchInfo() {
-  if (!touch) return;
-  
   Serial.println("=== Touch Info ===");
   Serial.printf("Calibrated: %s\\n", isCalibrated ? "Yes" : "No");
   Serial.printf("X Range: %d - %d\\n", calMinX, calMaxX);
@@ -423,7 +609,7 @@ SwipeEvent TouchHandler::detectSwipe() {
   swipe.isValid = false;
   swipe.direction = SWIPE_NONE;
   
-  TouchEvent currentTouch = readTouch();
+  ECUTouchEvent currentTouch = readTouch();
   
   if (currentTouch.isValid && currentTouch.pressed) {
     if (!swipeStarted) {
@@ -575,7 +761,7 @@ void handleTouchNavigation() {
   }
   
   // Get raw touch event for swipe detection (bypasses stability filtering)
-  TouchEvent touch = touchHandler.readTouchRaw();
+  ECUTouchEvent touch = touchHandler.readTouchRaw();
   
   if (touch.isValid && touch.pressed) {
     if (!touchStarted) {

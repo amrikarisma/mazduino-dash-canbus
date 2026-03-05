@@ -1,9 +1,14 @@
 #ifndef TOUCH_HANDLER_H
 #define TOUCH_HANDLER_H
 
-#include <XPT2046_Touchscreen.h>
-#include <SPI.h>
 #include "Config.h"
+
+#ifdef USE_FT6236_TOUCH
+  #include <FT6236.h>
+#else
+  #include <XPT2046_Touchscreen.h>
+  #include <SPI.h>
+#endif
 
 // Touch button areas (for web interface navigation)
 struct TouchArea {
@@ -13,7 +18,7 @@ struct TouchArea {
 };
 
 // Touch event structure
-struct TouchEvent {
+struct ECUTouchEvent {
   uint16_t x, y;
   bool pressed;
   uint32_t timestamp;
@@ -40,7 +45,11 @@ struct SwipeEvent {
 
 class TouchHandler {
 private:
+#ifdef USE_FT6236_TOUCH
+  FT6236* touchFT;
+#else
   XPT2046_Touchscreen* touch;
+#endif
   uint32_t lastTouchTime;
   uint16_t debounceDelay;
     // Swipe tracking
@@ -56,7 +65,7 @@ private:
   
 public:
   uint8_t touchAreaCount;
-  TouchEvent lastTouch; // Make lastTouch accessible
+  ECUTouchEvent lastTouch; // Make lastTouch accessible
   
 public:
   TouchHandler();
@@ -68,8 +77,8 @@ public:
   bool isCalibrationValid();
   
   // Touch reading
-  TouchEvent readTouch();
-  TouchEvent readTouchRaw(); // For swipe detection without stability filtering
+  ECUTouchEvent readTouch();
+  ECUTouchEvent readTouchRaw(); // For swipe detection without stability filtering
   bool isTouched();
   void update();
   

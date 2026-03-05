@@ -69,18 +69,42 @@ extern const char *password;
 // RPM Configuration
 #define DEFAULT_MAX_RPM 9000
 
-// Touch screen pins (dedicated SPI bus)
+// Touch screen pins (dedicated SPI bus for XPT2046 resistive touch)
 #define XPT2046_CS 33
 #define XPT2046_IRQ 27
 #define XPT2046_MOSI 13  // DIN
 #define XPT2046_MISO 12  // DO  
 #define XPT2046_CLK 14
 
+// FT6236 Capacitive Touch pins (I2C) - for KMRTM35018-SPI
+// This module uses only CTP_SDA and CTP_SCL (INT/RST not connected)
+#ifndef FT6236_SDA
+#define FT6236_SDA 33
+#endif
+#ifndef FT6236_SCL
+#define FT6236_SCL 13
+#endif
+
 // Touch calibration defaults
-#define TOUCH_MIN_X 200
-#define TOUCH_MAX_X 3700
-#define TOUCH_MIN_Y 240
-#define TOUCH_MAX_Y 3800
+#ifdef USE_FT6236_TOUCH
+	// FT6236 sample raw ranges from KMRTM35018 panel
+	#define TOUCH_MIN_X 10
+	#define TOUCH_MAX_X 316
+	#define TOUCH_MIN_Y 2
+	#define TOUCH_MAX_Y 463
+#else
+	// XPT2046 resistive defaults
+	#define TOUCH_MIN_X 200
+	#define TOUCH_MAX_X 3700
+	#define TOUCH_MIN_Y 240
+	#define TOUCH_MAX_Y 3800
+#endif
+
+// Touch pressure thresholds (XPT2046 resistive touch only)
+#define TOUCH_PRESSURE_THRESHOLD 600    // Standard threshold
+#define TOUCH_USE_POLLING 0             // Use IRQ-based detection
+#define TOUCH_MIN_PRESSURE 600          // Minimum valid pressure
+#define TOUCH_MAX_PRESSURE 4000         // Maximum valid pressure
 
 // Screen definitions
 #define SCREEN_MAIN 0

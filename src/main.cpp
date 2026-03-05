@@ -128,7 +128,7 @@ void handleSerialCommands()
         Serial.println("=== TOUCH TEST ===");
         Serial.println("Touch the screen for next 10 seconds...");
         for (int i = 0; i < 100; i++) {
-          TouchEvent touch = touchHandler.readTouch();
+          ECUTouchEvent touch = touchHandler.readTouch();
           if (touch.isValid) {
             Serial.printf("Touch %d: (%d,%d) pressed=%s\\n", 
                          i, touch.x, touch.y, touch.pressed ? "YES" : "NO");
