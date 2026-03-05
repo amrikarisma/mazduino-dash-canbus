@@ -503,12 +503,20 @@ void loop()
       }
     }
     
-    // Print detailed AC status
+    // Print detailed AC status (throttled to reduce spam)
     if (acControllerEnabled) {
-      if (acDataReceived) {
-        Serial.printf("[AC] %.1f°C\n", acCurrentTemp);
-      } else {
-        Serial.println("[AC] No data");
+      static uint32_t lastACStatusDebug = 0;
+      static bool lastACDataStatus = false;
+      
+      // Only print every 10 seconds or when status changes
+      if ((millis() - lastACStatusDebug > 10000) || (acDataReceived != lastACDataStatus)) {
+        if (acDataReceived) {
+          Serial.printf("[AC] %.1f°C\n", acCurrentTemp);
+        } else {
+          Serial.println("[AC] No data");
+        }
+        lastACStatusDebug = millis();
+        lastACDataStatus = acDataReceived;
       }
     }
     

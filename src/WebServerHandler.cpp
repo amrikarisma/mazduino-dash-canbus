@@ -7,6 +7,7 @@
 #include "Comms.h"
 #include "OTAUpdater.h"
 #include "GPSHandler.h"
+#include "ESPNowHandler.h"
 #include "version.h"
 #include <WiFi.h>
 #include <WebServer.h>
@@ -1536,7 +1537,7 @@ const char *uploadPage PROGMEM = R"rawliteral(
           <strong>Build:</strong> <span id="buildInfo">Loading...</span>
         </p>
         <p style="font-size: 14px; opacity: 0.8;">
-          <span id="powerSaveInfo">WiFi will automatically turn off after 1 minute of inactivity to save power.</span>
+          <span id="powerSaveInfo">WiFi will automatically turn off after 1 minute of inactivity to save power. WiFi stays on during ESP-NOW communication.</span>
         </p>
         <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
           <h3 style="color: #4CAF50; font-size: 14px; margin-bottom: 10px;">Follow Us</h3>
@@ -2418,6 +2419,12 @@ void startWebServer()
 void stopWebServer()
 {
   if (wifiActive) {
+    // Final safety check - don't stop WiFi if ESP-NOW is actively receiving data
+    if (isACDataValid() || (millis() - acLastUpdate < 30000)) {
+      Serial.println("[WiFi] Cannot stop WiFi - ESP-NOW is actively receiving AC data");
+      return;
+    }
+    
     Serial.println("Stopping WiFi and Web Server to save power...");
     server.stop();
     WiFi.mode(WIFI_OFF);
@@ -2653,26 +2660,36 @@ void handleWebServerClients()
       // Check for recent API activity (within last 30 seconds)
       bool apiActiveRecently = (millis() - lastApiActivity < 30000);
       
+      // Check for ESP-NOW activity (AC data from ESP32C3)
+      bool espNowActive = isACDataValid();
+      unsigned long timeSinceLastESPNow = millis() - acLastUpdate;
+      
       // Don't turn off WiFi if API was accessed recently
       if (apiActiveRecently) {
         lastClientConnectedTime = millis(); // Reset timeout if API is active
-        Serial.println("[WiFi] API activity detected - keeping WiFi active");
       }
       
-      // Turn off WiFi and Bluetooth after 60 seconds (1 minute) of no connections AND no API activity
+      // Don't turn off WiFi if ESP-NOW is receiving data
+      if (espNowActive || timeSinceLastESPNow < 30000) {
+        lastClientConnectedTime = millis(); // Reset timeout if ESP-NOW is active
+      }
+      
+      // Turn off WiFi and Bluetooth after 60 seconds (1 minute) of no connections AND no API activity AND no ESP-NOW activity
       if (hasBeenConnected && wifiActive && 
-          (millis() - lastClientConnectedTime > 60000) && !apiActiveRecently)
+          (millis() - lastClientConnectedTime > 60000) && 
+          !apiActiveRecently && !espNowActive && timeSinceLastESPNow >= 30000)
       {
-        Serial.println("No clients connected and no API activity for 1 minute - shutting down WiFi/Bluetooth");
+        Serial.println("No clients connected, no API activity, and no ESP-NOW activity for 1 minute - shutting down WiFi/Bluetooth");
         stopWebServer();
         return;
       }
       
-      // Also turn off if no one has ever connected after 5 minutes from web server start AND no API activity
+      // Also turn off if no one has ever connected after 5 minutes from web server start AND no API activity AND no ESP-NOW activity
       if (!hasBeenConnected && wifiActive && 
-          (millis() - webServerStartTime > 300000) && !apiActiveRecently)
+          (millis() - webServerStartTime > 300000) && 
+          !apiActiveRecently && !espNowActive && timeSinceLastESPNow >= 30000)
       {
-        Serial.println("No clients ever connected and no API activity after 5 minutes - shutting down WiFi/Bluetooth");
+        Serial.println("No clients ever connected, no API activity, and no ESP-NOW activity after 5 minutes - shutting down WiFi/Bluetooth");
         stopWebServer();
         return;
       }
