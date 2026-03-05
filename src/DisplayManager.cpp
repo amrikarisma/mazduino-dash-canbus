@@ -46,8 +46,11 @@ void setupDisplay() {
 }
 
 void drawSplashScreenWithImage() {
+  // Skip splash screen if DISABLE_SPLASH flag is set
+#ifndef DISABLE_SPLASH
   // Use the new modular animated splash screen
   showAnimatedSplashScreen();
+#endif
 }
 
 void drawData() {

@@ -9,5 +9,5 @@ void setBacklightBrightness(uint8_t brightness);
 void saveBrightnessToEEPROM();
 void loadBrightnessFromEEPROM();
 void enableBacklightAfterSplash();
-
+void enableBacklightWithFadeIn();
 #endif // BACKLIGHT_CONTROL_H

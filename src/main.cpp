@@ -325,11 +325,16 @@ void setup()
     Serial.println("WARNING: Touch controller initialization failed");
   }
   
+#ifdef DISABLE_SPLASH
+  // Fade in backlight gradually when splash screen is disabled
+  enableBacklightWithFadeIn();
+#else
   // Show splash screen with gradual fade-in effect
   drawSplashScreenWithImage();
   
   // Set backlight to normal brightness after splash screen
   enableBacklightAfterSplash();
+#endif
   
   display.fillScreen(TFT_BLACK);
   

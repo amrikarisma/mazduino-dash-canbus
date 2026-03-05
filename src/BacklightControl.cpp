@@ -57,7 +57,20 @@ void loadBrightnessFromEEPROM() {
 void enableBacklightAfterSplash() {
   // Turn on backlight with saved brightness after splash screen
   ledcWrite(BACKLIGHT_PIN, backlightBrightness);
-  Serial.printf("Backlight enabled after splash screen with brightness: %d\n", backlightBrightness);
 }
 
-
+void enableBacklightWithFadeIn() {
+  // Gradually fade in backlight from 0 to saved brightness
+  const uint8_t FADE_STEPS = 50;  // Number of steps for fade-in
+  const uint16_t FADE_DELAY = 20; // Delay in ms between each step
+  
+  for (uint8_t step = 0; step <= FADE_STEPS; step++) {
+    // Calculate brightness for current step
+    uint8_t currentBrightness = (backlightBrightness * step) / FADE_STEPS;
+    ledcWrite(BACKLIGHT_PIN, currentBrightness);
+    delay(FADE_DELAY);
+  }
+  
+  // Ensure we reach the exact target brightness
+  ledcWrite(BACKLIGHT_PIN, backlightBrightness);
+}

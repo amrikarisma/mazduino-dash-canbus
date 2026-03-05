@@ -12,8 +12,8 @@ extern const char *password;
 
 // Pin definitions
 #define UART_BAUD 115200
-#define RXD 25  // Changed from 16 to avoid conflict with CAN TX
-#define TXD 26  // Changed from 17 to avoid conflict with CAN RX
+#define RXD 26 
+#define TXD 25 
 
 // Backlight control
 #define BACKLIGHT_PIN 32
