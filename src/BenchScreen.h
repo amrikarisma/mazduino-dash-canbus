@@ -42,13 +42,15 @@ private:
     // Helper functions
     void drawIgnitionButtons(bool forceRedraw);
     void drawInjectorButtons(bool forceRedraw);
-    void drawEngineControlButtons(bool forceRedraw);
+    void drawFanAndFuelPumpButtons(bool forceRedraw);
     void drawScreenIndicator(bool forceRedraw);
     
     // Bench test functions
     bool benchIgnition(uint8_t cylinder);
     bool benchInjector(uint8_t cylinder);
-    bool startStopEngine();
+    bool benchFan1();
+    bool benchFan2();
+    bool benchFuelpump();
     
     // Static variables for update tracking
     static bool initialized;

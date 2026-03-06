@@ -4,6 +4,8 @@
 #include "Arduino.h"
 #include <EEPROM.h>
 
+static constexpr uint8_t MIN_SAFE_BRIGHTNESS = 3; // ~1% of 255
+
 void setupBacklight(bool isInitialStartup) {
   // Load brightness from EEPROM
   loadBrightnessFromEEPROM();
@@ -23,8 +25,12 @@ void setupBacklight(bool isInitialStartup) {
 }
 
 void setBacklightBrightness(uint8_t brightness) {
+  if (brightness < MIN_SAFE_BRIGHTNESS) {
+    brightness = MIN_SAFE_BRIGHTNESS;
+  }
+
   backlightBrightness = brightness;
-  ledcWrite(BACKLIGHT_PIN, brightness);
+  ledcWrite(BACKLIGHT_PIN, backlightBrightness);
   // Save to EEPROM whenever brightness is changed
   saveBrightnessToEEPROM();
 }
@@ -48,8 +54,8 @@ void loadBrightnessFromEEPROM() {
     saveBrightnessToEEPROM(); // Save default to EEPROM
     Serial.println("Using default brightness 150 (EEPROM uninitialized)");
   } else {
-    // Use saved brightness (all values 0-255 are valid)
-    backlightBrightness = savedBrightness;
+    // Use saved brightness with safety minimum to keep screen visible
+    backlightBrightness = (savedBrightness < MIN_SAFE_BRIGHTNESS) ? MIN_SAFE_BRIGHTNESS : savedBrightness;
     Serial.printf("Brightness loaded from EEPROM: %d\n", backlightBrightness);
   }
 }
@@ -84,7 +90,7 @@ void increaseBrightness(uint8_t amount) {
 
 void decreaseBrightness(uint8_t amount) {
   int16_t newBrightness = backlightBrightness - amount;
-  if (newBrightness < 20) newBrightness = 20; // Minimum brightness
+  if (newBrightness < MIN_SAFE_BRIGHTNESS) newBrightness = MIN_SAFE_BRIGHTNESS; // Minimum safe brightness (~1%)
   setBacklightBrightness((uint8_t)newBrightness);
   Serial.printf("[Brightness] Decreased to %d\n", backlightBrightness);
 }

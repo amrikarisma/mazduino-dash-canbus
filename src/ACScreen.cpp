@@ -232,8 +232,8 @@ void ACScreen::handleTouch(uint16_t x, uint16_t y) {
     
     switch (btn) {
       case AC_BTN_BACK:
-        currentScreen = SCREEN_MENU;
-        Serial.println("[AC] Returning to menu");
+        navigateBack();
+        Serial.println("[AC] Returning to previous screen");
         break;
         
       case AC_BTN_TEMP_UP:

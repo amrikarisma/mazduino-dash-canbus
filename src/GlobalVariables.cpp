@@ -68,6 +68,7 @@ uint32_t loopStartTime = 0;
 
 // Screen management
 uint8_t currentScreen = SCREEN_MAIN;
+uint8_t prevScreen = SCREEN_MAIN;
 
 // GPS data variables
 bool gpsEnabled = false;
@@ -85,3 +86,15 @@ bool acControllerEnabled = true;  // Default enabled
 bool acDataReceived = false;
 float acCurrentTemp = 0.0;
 uint32_t acLastUpdate = 0;
+
+// Navigation helper function
+void navigateTo(uint8_t newScreen) {
+  if (newScreen != currentScreen) {
+    prevScreen = currentScreen;
+    currentScreen = newScreen;
+  }
+}
+
+void navigateBack() {
+  currentScreen = prevScreen;
+}

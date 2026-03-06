@@ -59,7 +59,7 @@ void BenchScreen::draw(bool forceRedraw) {
         
         // Draw title
         display.loadFont(AA_FONT_LARGE);
-        display.setTextColor(TFT_RED, TFT_BLACK);
+        display.setTextColor(TFT_ORANGE, TFT_BLACK);
         display.setTextDatum(TC_DATUM);
         display.drawString("BENCH TEST", display.width() / 2, 15);
     }
@@ -71,7 +71,7 @@ void BenchScreen::draw(bool forceRedraw) {
     drawInjectorButtons(forceRedraw);
     
     // Draw engine control buttons
-    drawEngineControlButtons(forceRedraw);
+    drawFanAndFuelPumpButtons(forceRedraw);
     
     // Draw screen indicator
     drawScreenIndicator(forceRedraw);
@@ -161,55 +161,55 @@ bool BenchScreen::handleTouch(uint16_t x, uint16_t y) {
         }
     }
     
-    // Check engine control buttons - Row 3
-    struct EngineButton {
+    // Check FAN and Fuelpump buttons - Row 3
+    struct AuxButton {
         uint16_t x, y, w, h;
         int id;
         const char* name;
     };
     
-    EngineButton engineBtns[] = {
-        {50, 220, 120, 50, 100, "START ENGINE"},  // Moved down from 180
-        {200, 220, 120, 50, 101, "STOP ENGINE"},
-        {350, 220, 100, 50, 102, "RESET"}
+    AuxButton auxBtns[] = {
+        {20, 225, 120, 50, 200, "FAN 1"},
+        {170, 225, 120, 50, 201, "FAN 2"},
+        {320, 225, 120, 50, 202, "FUELPUMP"}
     };
     
     for (int i = 0; i < 3; i++) {
-        if (x >= engineBtns[i].x && x <= (engineBtns[i].x + engineBtns[i].w) &&
-            y >= engineBtns[i].y && y <= (engineBtns[i].y + engineBtns[i].h)) {
+        if (x >= auxBtns[i].x && x <= (auxBtns[i].x + auxBtns[i].w) &&
+            y >= auxBtns[i].y && y <= (auxBtns[i].y + auxBtns[i].h)) {
             
-            selectedButton = engineBtns[i].id;
+            selectedButton = auxBtns[i].id;
 #if ENABLE_DEBUG_MODE
             if (debugMode) {
-                Serial.printf("[Bench] Engine control button pressed: %s\n", engineBtns[i].name);
+                Serial.printf("[Bench] Auxiliary control button pressed: %s\n", auxBtns[i].name);
             }
 #endif
             
             // Show immediate visual feedback
             draw(true);
             
-            switch (engineBtns[i].id) {
-                case 100: // Start Engine
-                    testResult = startStopEngine();
+            switch (auxBtns[i].id) {
+                case 200: // FAN 1
+                    testResult = benchFan1();
 #if ENABLE_DEBUG_MODE
                     if (debugMode) {
-                        Serial.printf("[Bench] Engine start: %s\n", testResult ? "OK" : "FAIL");
+                        Serial.printf("[Bench] FAN 1 test: %s\n", testResult ? "OK" : "FAIL");
                     }
 #endif
                     break;
-                case 101: // Stop Engine  
-                    testResult = startStopEngine();
+                case 201: // FAN 2
+                    testResult = benchFan2();
 #if ENABLE_DEBUG_MODE
                     if (debugMode) {
-                        Serial.printf("[Bench] Engine stop: %s\n", testResult ? "OK" : "FAIL");
+                        Serial.printf("[Bench] FAN 2 test: %s\n", testResult ? "OK" : "FAIL");
                     }
 #endif
                     break;
-                case 102: // Reset
-                    testResult = false;
+                case 202: // Fuelpump
+                    testResult = benchFuelpump();
 #if ENABLE_DEBUG_MODE
                     if (debugMode) {
-                        Serial.println("[Bench] System reset");
+                        Serial.printf("[Bench] Fuelpump test: %s\n", testResult ? "OK" : "FAIL");
                     }
 #endif
                     break;
@@ -238,9 +238,9 @@ void BenchScreen::drawIgnitionButtons(bool forceRedraw) {
             int x = 15 + (i-1) * 55;  // Start at 15px with smaller spacing to fit in margin
             int y = 85;  // Moved down from 80
             bool isPressed = (selectedButton == i);
-            uint16_t bgColor = isPressed ? TFT_YELLOW : TFT_DARKGREY;
-            uint16_t textColor = isPressed ? TFT_BLACK : TFT_ORANGE;
-            uint16_t borderColor = isPressed ? TFT_ORANGE : TFT_WHITE;
+            uint16_t bgColor = isPressed ? TFT_WHITE : TFT_ORANGE;
+            uint16_t textColor = isPressed ? TFT_BLACK : TFT_WHITE;
+            uint16_t borderColor = TFT_WHITE;
             
             // Add shadow effect for pressed state
             if (isPressed) {
@@ -265,7 +265,7 @@ void BenchScreen::drawInjectorButtons(bool forceRedraw) {
         
         // Draw INJ section header
         display.loadFont(AA_FONT_SMALL);
-        display.setTextColor(TFT_CYAN, TFT_BLACK);
+        display.setTextColor(TFT_ORANGE, TFT_BLACK);
         display.setTextDatum(TL_DATUM);
         display.drawString("INJECTOR TEST:", 15, 140);  // Moved right for margin
         
@@ -274,9 +274,9 @@ void BenchScreen::drawInjectorButtons(bool forceRedraw) {
             int x = 15 + (i-1) * 55;  // Start at 15px with smaller spacing to fit in margin
             int y = 155; // Moved down from 150
             bool isPressed = (selectedButton == (i + 10));
-            uint16_t bgColor = isPressed ? TFT_BLUE : TFT_DARKGREY;
-            uint16_t textColor = isPressed ? TFT_WHITE : TFT_CYAN;
-            uint16_t borderColor = isPressed ? TFT_CYAN : TFT_WHITE;
+            uint16_t bgColor = isPressed ? TFT_WHITE : TFT_ORANGE;
+            uint16_t textColorFinal = isPressed ? TFT_BLACK : TFT_WHITE;
+            uint16_t borderColor = TFT_WHITE;
             
             // Add shadow effect for pressed state
             if (isPressed) {
@@ -287,55 +287,55 @@ void BenchScreen::drawInjectorButtons(bool forceRedraw) {
             display.drawRect(x, y, 50, 45, borderColor);
             
             display.loadFont(AA_FONT_SMALL);
-            display.setTextColor(textColor, bgColor);
+            display.setTextColor(textColorFinal, bgColor);
             display.setTextDatum(MC_DATUM);
             display.drawString("INJ" + String(i), x + 25, y + 22);
         }
     }
 }
 
-void BenchScreen::drawEngineControlButtons(bool forceRedraw) {
+void BenchScreen::drawFanAndFuelPumpButtons(bool forceRedraw) {
     if (forceRedraw) {
-        // Clear engine control section area
+        // Clear section area
         display.fillRect(0, 200, display.width(), 100, TFT_BLACK);
         
-        // Draw engine control section header
+        // Draw section header
         display.loadFont(AA_FONT_SMALL);
-        display.setTextColor(TFT_GREEN, TFT_BLACK);
+        display.setTextColor(TFT_ORANGE, TFT_BLACK);
         display.setTextDatum(TL_DATUM);
-        display.drawString("ENGINE CONTROL:", 10, 205);
+        display.drawString("AUXILIARY CONTROL:", 10, 205);
         
-        // Start Engine button
-        bool startPressed = (selectedButton == 100);
-        uint16_t startBg = startPressed ? TFT_GREEN : TFT_DARKGREEN;
-        uint16_t startText = startPressed ? TFT_BLACK : TFT_WHITE;
-        if (startPressed) display.fillRect(52, 222, 120, 50, TFT_DARKGREY);
-        display.fillRect(50, 220, 120, 50, startBg);  // Moved down from 180
-        display.drawRect(50, 220, 120, 50, TFT_GREEN);
-        display.loadFont(AA_FONT_SMALL);
-        display.setTextColor(startText, startBg);
-        display.setTextDatum(MC_DATUM);
-        display.drawString("START", 110, 245);
+        // Define three buttons with proper spacing
+        struct AuxButton {
+            uint16_t x, y, w, h;
+            int id;
+            const char* label;
+            uint16_t color;
+        };
         
-        // Stop Engine button
-        bool stopPressed = (selectedButton == 101);
-        uint16_t stopBg = stopPressed ? TFT_RED : TFT_MAROON;
-        uint16_t stopText = stopPressed ? TFT_WHITE : TFT_WHITE;
-        if (stopPressed) display.fillRect(202, 222, 120, 50, TFT_DARKGREY);
-        display.fillRect(200, 220, 120, 50, stopBg);
-        display.drawRect(200, 220, 120, 50, TFT_RED);
-        display.setTextColor(stopText, stopBg);
-        display.drawString("STOP", 260, 245);
+        AuxButton buttons[] = {
+            {20, 225, 120, 50, 200, "FAN 1", TFT_ORANGE},
+            {170, 225, 120, 50, 201, "FAN 2", TFT_ORANGE},
+            {320, 225, 120, 50, 202, "FUELPUMP", TFT_ORANGE}
+        };
         
-        // Reset button
-        bool resetPressed = (selectedButton == 102);
-        uint16_t resetBg = resetPressed ? TFT_YELLOW : TFT_OLIVE;
-        uint16_t resetText = resetPressed ? TFT_BLACK : TFT_WHITE;
-        if (resetPressed) display.fillRect(352, 222, 100, 50, TFT_DARKGREY);
-        display.fillRect(350, 220, 100, 50, resetBg);
-        display.drawRect(350, 220, 100, 50, TFT_YELLOW);
-        display.setTextColor(resetText, resetBg);
-        display.drawString("RESET", 400, 245);
+        for (int i = 0; i < 3; i++) {
+            bool isPressed = (selectedButton == buttons[i].id);
+            uint16_t bgColor = isPressed ? TFT_WHITE : TFT_ORANGE;
+            uint16_t textColor = isPressed ? TFT_BLACK : TFT_WHITE;
+            uint16_t borderColor = TFT_WHITE;
+            
+            // Draw button background
+            if (isPressed) display.fillRect(buttons[i].x + 2, buttons[i].y + 2, buttons[i].w, buttons[i].h, TFT_DARKGREY);
+            display.fillRect(buttons[i].x, buttons[i].y, buttons[i].w, buttons[i].h, bgColor);
+            display.drawRect(buttons[i].x, buttons[i].y, buttons[i].w, buttons[i].h, borderColor);
+            
+            // Draw button text
+            display.loadFont(AA_FONT_SMALL);
+            display.setTextColor(textColor, bgColor);
+            display.setTextDatum(MC_DATUM);
+            display.drawString(buttons[i].label, buttons[i].x + buttons[i].w / 2, buttons[i].y + buttons[i].h / 2);
+        }
         
         // Draw status line
         String status = testResult ? "LAST TEST: PASS" : "LAST TEST: FAIL";
@@ -418,30 +418,23 @@ bool BenchScreen::benchInjector(uint8_t cylinder) {
     return result;
 }
 
-bool BenchScreen::startStopEngine() {
-    if (!isCANMode || canProtocol != CAN_PROTOCOL_RUSEFI) {
-#if ENABLE_DEBUG_MODE
-        if (debugMode) {
-            Serial.println("[Bench] Error: RusEFI CAN mode required for engine control");
-        }
-#endif
-        return false;
-    }
-    
-    // Prepare engine start/stop data (RusEFI format)
-    uint8_t data[] = { BENCH_HEADER, 0x00, BENCH_ENGINE_SUBSYS, 0x00, BENCH_ENGINE_STARTSTOP, 0x00, 0x00, 0x00 };
-    
-    CAN_FRAME frame;
-    frame.id = RUSEFI_BENCH_CAN_ID;  // Use RusEFI bench test CAN ID
-    frame.extended = false;  // Standard CAN ID, not extended
-    frame.length = 8;
-    memcpy(frame.data.byte, data, 8);
-    
-    bool result = CAN0.sendFrame(frame);
-#if ENABLE_DEBUG_MODE
-    if (debugMode) {
-        Serial.printf("[Bench] Engine start/stop sent: %s\n", result ? "OK" : "FAIL");
-    }
-#endif
-    return result;
+bool BenchScreen::benchFan1() {
+    // TODO: Implement FAN 1 control command via CAN
+    // Placeholder: return true for now (non-functional)
+    Serial.println("[Bench] FAN 1 button pressed - command pending");
+    return true;
+}
+
+bool BenchScreen::benchFan2() {
+    // TODO: Implement FAN 2 control command via CAN
+    // Placeholder: return true for now (non-functional)
+    Serial.println("[Bench] FAN 2 button pressed - command pending");
+    return true;
+}
+
+bool BenchScreen::benchFuelpump() {
+    // TODO: Implement Fuelpump control command via CAN
+    // Placeholder: return true for now (non-functional)
+    Serial.println("[Bench] Fuelpump button pressed - command pending");
+    return true;
 }

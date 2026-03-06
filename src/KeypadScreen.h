@@ -27,6 +27,11 @@ private:
   TFT_eSPI* tft;
   FeatureButton buttons[FEATURE_COUNT];
   
+  // Debounce tracking
+  ECUFeature lastPressedFeature;
+  uint32_t lastPressTime;
+  static const uint32_t PRESS_DEBOUNCE_MS = 400;  // Minimum time between toggles
+  
   void initButtons();
   void drawButton(const FeatureButton& btn, bool pressed);
   void toggleFeature(ECUFeature feature);

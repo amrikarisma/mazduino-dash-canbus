@@ -60,6 +60,7 @@ extern uint32_t loopStartTime;
 
 // Screen management
 extern uint8_t currentScreen;
+extern uint8_t prevScreen;
 
 // GPS data variables
 extern bool gpsEnabled;
@@ -77,5 +78,9 @@ extern bool acControllerEnabled;
 extern bool acDataReceived;
 extern float acCurrentTemp;
 extern uint32_t acLastUpdate;
+
+// Navigation helper functions
+void navigateTo(uint8_t newScreen);
+void navigateBack();
 
 #endif // DATATYPES_H

@@ -1,5 +1,6 @@
 #include "TouchHandler.h"
 #include "Config.h"
+#include "DataTypes.h"
 #include "ConfigScreen.h"
 #include "BenchScreen.h"
 #include "MenuScreen.h"
@@ -811,7 +812,7 @@ void handleTouchNavigation() {
         
         // Handle long press action - open menu on main screen
         if (currentScreen == SCREEN_MAIN) {
-          currentScreen = SCREEN_MENU;
+          navigateTo(SCREEN_MENU);
           Serial.println("[LongPress] Opening menu from main screen");
         }
       }
@@ -837,11 +838,11 @@ void handleTouchNavigation() {
           if (deltaY < 0) {
             // Swipe UP - Show menu
             Serial.println("UP -> MENU");
-            currentScreen = SCREEN_MENU;
+            navigateTo(SCREEN_MENU);
           } else {
             // Swipe DOWN - Show keypad
             Serial.println("DOWN -> KEYPAD");
-            currentScreen = SCREEN_KEYPAD;
+            navigateTo(SCREEN_KEYPAD);
           }
         } else if (horizontalRange > verticalRange && horizontalRange > 15 && duration < 1000 && abs(deltaX) > 10) {
           // HORIZONTAL SWIPE - Back navigation only
@@ -849,12 +850,9 @@ void handleTouchNavigation() {
             // Swipe LEFT - Go back to previous screen
             Serial.print("LEFT -> Back: ");
             if (currentScreen == SCREEN_CONFIG || currentScreen == SCREEN_BENCH || 
-                currentScreen == SCREEN_KEYPAD || currentScreen == SCREEN_AC) {
-              currentScreen = SCREEN_MAIN;
-              Serial.println("MAIN");
-            } else if (currentScreen == SCREEN_MENU) {
-              currentScreen = SCREEN_MAIN;
-              Serial.println("MAIN");
+                currentScreen == SCREEN_KEYPAD || currentScreen == SCREEN_AC || currentScreen == SCREEN_MENU) {
+              navigateBack();
+              Serial.println("previousScreen");
             } else {
               Serial.println("(no change)");
             }

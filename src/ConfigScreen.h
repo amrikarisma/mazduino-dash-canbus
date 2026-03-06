@@ -46,38 +46,28 @@ public:
     
 private:
     // Helper functions
-    void drawSystemInfo(bool forceRedraw);
-    void drawWiFiStatus(bool forceRedraw);
-    void drawConfigOptions(bool forceRedraw);
+    void drawHeader(bool forceRedraw);
     void drawScreenIndicator(bool forceRedraw);
-    void drawPressProgress();
-    void clearProgressArea();
     
     // Configuration sections
-    void drawStatusSection(int y, bool selected = false);
-    void drawCommModeSection(int y, bool selected = false);
-    void drawWiFiSection(int y, bool selected = false);
-    void drawDisplaySection(int y, bool selected = false);
-    void drawBrightnessSection(int y, bool selected = false);
-    void drawDebugSection(int y, bool selected = false);
-    void drawInfoSection(int y, bool selected = false);
+    void drawCommModeSection(int y);
+    void drawWiFiControlSection(int y);
+    void drawBrightnessSection(int y);
+    void drawBrightnessValueAndSlider(int y);
+    void drawWiFiInfo(bool forceRedraw);
     
     // Configuration change handlers
-    void handleSectionTouch(int sectionId);
-    void toggleCommMode();
-    void adjustBrightness();
-    void toggleDebugMode();
+    bool handleCommModeChange();
+    bool handleWiFiControlTouch(uint16_t x, uint16_t y);
+    bool handleBrightnessSliderTouch(uint16_t x);
     
     // Static variables for update tracking
     static bool initialized;
     static uint32_t lastUpdate;
-    static int selectedSection;
     
     // Press and hold tracking
     static bool isPressing;
     static uint32_t pressStartTime;
-    static int pressedSection;
-    static uint16_t pressX, pressY;
 };
 
 // Global instance

@@ -1,6 +1,8 @@
 #include "MenuScreen.h"
 #include "Config.h"
 #include "DataTypes.h"
+#include "Roboto16.h"
+#include "RobotoBold32.h"
 
 // Global instance
 MenuScreen menuScreen;
@@ -30,8 +32,8 @@ void MenuScreen::initMenuButtons() {
   menuButtons[MENU_BACK].y = startY;
   menuButtons[MENU_BACK].w = btnWidth;
   menuButtons[MENU_BACK].h = btnHeight;
-  menuButtons[MENU_BACK].label = "Back";
-  menuButtons[MENU_BACK].color = TFT_DARKGREY;
+  menuButtons[MENU_BACK].label = "Main";
+  menuButtons[MENU_BACK].color = TFT_ORANGE;
   menuButtons[MENU_BACK].item = MENU_BACK;
   
   // Config button (top-right)
@@ -40,7 +42,7 @@ void MenuScreen::initMenuButtons() {
   menuButtons[MENU_CONFIG].w = btnWidth;
   menuButtons[MENU_CONFIG].h = btnHeight;
   menuButtons[MENU_CONFIG].label = "Config";
-  menuButtons[MENU_CONFIG].color = TFT_CYAN;
+  menuButtons[MENU_CONFIG].color = TFT_ORANGE;
   menuButtons[MENU_CONFIG].item = MENU_CONFIG;
   
   // Bench button (bottom-left)
@@ -49,7 +51,7 @@ void MenuScreen::initMenuButtons() {
   menuButtons[MENU_BENCH].w = btnWidth;
   menuButtons[MENU_BENCH].h = btnHeight;
   menuButtons[MENU_BENCH].label = "Bench Test";
-  menuButtons[MENU_BENCH].color = TFT_RED;
+  menuButtons[MENU_BENCH].color = TFT_ORANGE;
   menuButtons[MENU_BENCH].item = MENU_BENCH;
   
   // AC Control button (bottom-right)
@@ -58,7 +60,7 @@ void MenuScreen::initMenuButtons() {
   menuButtons[MENU_AC_CONTROL].w = btnWidth;
   menuButtons[MENU_AC_CONTROL].h = btnHeight;
   menuButtons[MENU_AC_CONTROL].label = "AC Control";
-  menuButtons[MENU_AC_CONTROL].color = TFT_BLUE;
+  menuButtons[MENU_AC_CONTROL].color = TFT_ORANGE;
   menuButtons[MENU_AC_CONTROL].item = MENU_AC_CONTROL;
 }
 
@@ -67,11 +69,6 @@ void MenuScreen::draw(bool setup) {
   
   if (setup) {
     tft->fillScreen(TFT_BLACK);
-    
-    // Draw title
-    tft->setTextColor(TFT_WHITE);
-    tft->setTextSize(3);
-    tft->drawString("MENU", 240, 40, 4);
     
     // Draw all buttons
     for (int i = 0; i < MENU_ITEM_COUNT; i++) {
@@ -92,11 +89,11 @@ void MenuScreen::drawButton(const MenuButton& btn, bool highlighted) {
   // Draw button border
   tft->drawRoundRect(btn.x, btn.y, btn.w, btn.h, 10, TFT_WHITE);
   
-  // Draw button text
-  tft->setTextColor(textColor);
+  // Draw button text with smooth font
+  tft->setTextColor(textColor, bgColor);
+  tft->loadFont(AA_FONT_SMALL);
   tft->setTextDatum(MC_DATUM);
-  tft->setTextSize(1);
-  tft->drawString(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2, 4);
+  tft->drawString(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2);
   tft->setTextDatum(TL_DATUM);
 }
 
@@ -109,22 +106,22 @@ void MenuScreen::handleTouch(uint16_t x, uint16_t y) {
     
     switch (item) {
       case MENU_BACK:
-        currentScreen = SCREEN_MAIN;
-        Serial.println("[Menu] Returning to main screen");
+        navigateTo(SCREEN_MAIN);
+        Serial.println("[Menu] Opening Main screen");
         break;
         
       case MENU_CONFIG:
-        currentScreen = SCREEN_CONFIG;
+        navigateTo(SCREEN_CONFIG);
         Serial.println("[Menu] Opening Configuration screen");
         break;
         
       case MENU_BENCH:
-        currentScreen = SCREEN_BENCH;
+        navigateTo(SCREEN_BENCH);
         Serial.println("[Menu] Opening Bench Test screen");
         break;
         
       case MENU_AC_CONTROL:
-        currentScreen = SCREEN_AC;
+        navigateTo(SCREEN_AC);
         Serial.println("[Menu] Opening AC Control screen");
         break;
         

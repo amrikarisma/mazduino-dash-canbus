@@ -8,11 +8,13 @@
 // Global instance
 KeypadScreen keypadScreen;
 
-KeypadScreen::KeypadScreen() : tft(nullptr) {
+KeypadScreen::KeypadScreen() : tft(nullptr), lastPressedFeature((ECUFeature)-1), lastPressTime(0) {
 }
 
 void KeypadScreen::begin(TFT_eSPI* display) {
   tft = display;
+  lastPressedFeature = (ECUFeature)-1;
+  lastPressTime = 0;
   initButtons();
 }
 
@@ -23,7 +25,7 @@ void KeypadScreen::initButtons() {
   uint16_t marginX = 15;
   uint16_t marginY = 10;
   uint16_t startX = 20;
-  uint16_t startY = 50;
+  uint16_t startY = 20;  // Moved up from 50 (no title "ECU"}
   
   // Row 1
   buttons[FEATURE_START_STOP_ENGINE] = {startX, startY, btnW, btnH, "Start Stop", FEATURE_START_STOP_ENGINE, false};
@@ -47,13 +49,7 @@ void KeypadScreen::draw(bool setup) {
   if (setup) {
     tft->fillScreen(TFT_BLACK);
     
-    // Title
-    tft->loadFont(AA_FONT_LARGE);
-    tft->setTextColor(TFT_WHITE, TFT_BLACK);
-    tft->setTextDatum(TC_DATUM);
-    tft->drawString("ECU", 240, 15);
-    
-    // Draw all buttons
+    // Draw all buttons (no title)
     for (int i = 0; i < FEATURE_COUNT; i++) {
       drawButton(buttons[i], false);
     }
@@ -63,7 +59,7 @@ void KeypadScreen::draw(bool setup) {
 void KeypadScreen::drawButton(const FeatureButton& btn, bool pressed) {
   if (!tft) return;
 
-  const uint16_t activeBgColor = TFT_BLUE;
+  const uint16_t activeBgColor = TFT_ORANGE;
   const uint16_t inactiveBgColor = TFT_DARKGREY;
   const uint16_t activeBorderColor = TFT_WHITE;
   const uint16_t inactiveBorderColor = TFT_LIGHTGREY;
@@ -102,9 +98,18 @@ void KeypadScreen::handleTouch(uint16_t x, uint16_t y) {
   
   if (feature != (ECUFeature)-1) {
     if (feature == FEATURE_BACK) {
-      currentScreen = SCREEN_MAIN;
+      navigateBack();
     } else {
-      toggleFeature(feature);
+      // Apply debounce: only allow toggle if minimum time has passed since last toggle
+      uint32_t currentTime = millis();
+      uint32_t timeSinceLastPress = currentTime - lastPressTime;
+      
+      // Allow toggle if: different button pressed OR enough time has passed since last toggle
+      if (feature != lastPressedFeature || timeSinceLastPress >= PRESS_DEBOUNCE_MS) {
+        toggleFeature(feature);
+        lastPressedFeature = feature;
+        lastPressTime = currentTime;
+      }
     }
   }
 }
