@@ -16,6 +16,14 @@ struct ACControllerData {
   float runtime;
 };
 
+// Structure to send AC settings to ESP32C3
+struct ACSettingsData {
+  float cutoffTemperature;
+  uint8_t mode; // 0=cool, 1=heat, 2=auto
+  bool enabled;
+  uint32_t timestamp;
+};
+
 // External variables
 extern ACControllerData receivedACData;
 extern bool acDataReceived;
@@ -29,6 +37,10 @@ void printACData();
 bool isACDataValid();
 String getACStatusString();
 void updateACControllerData();
+
+// Send functions
+void sendACCutoffToESP32C3(float cutoffTemp);
+void sendACSettingsToESP32C3(const ACSettingsData& settings);
 
 // Constants
 

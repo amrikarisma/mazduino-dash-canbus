@@ -5,13 +5,10 @@
 #include "SplashScreen.h"
 #include "BacklightControl.h"
 #include "Comms.h"
-#include "OTAUpdater.h"
-#include "GPSHandler.h"
 #include "ESPNowHandler.h"
 #include "version.h"
 #include <WiFi.h>
 #include <WebServer.h>
-#include <Update.h>
 #include <EEPROM.h>
 #include <esp_wifi.h>
 #include <esp_bt.h>
@@ -21,14 +18,8 @@
 #include "Simulator.h"
 #endif
 
-// Global OTA updater instance
-OTAUpdater otaUpdater;
-
 // IP configuration - Simple approach, let ESP32 use default IP
 // Default AP IP is usually 192.168.4.1
-
-// Global variable for OTA update size  
-static size_t otaUpdateSize = 0;
 
 // Global variable for API activity tracking
 static uint32_t lastApiActivity = 0;
@@ -1690,71 +1681,10 @@ void startWebServer()
     EEPROM.commit();
   }
   
-  // Initialize OTA Updater
-  if (!otaUpdater.initialize()) {
-    Serial.println("WARNING: Failed to initialize OTA Updater");
-  }
-
   server.on("/", HTTP_GET, handleRoot);
-  server.on(
-      "/update", HTTP_POST, [&]()
-      {
-        // Handle OTA completion response
-        String message;
-        int responseCode = 200;
-        OTAState otaState = otaUpdater.getState();
-        
-        if (otaState == OTA_SUCCESS) {
-          message = "Update successful! MAZDUINO Display will restart in 3 seconds...";
-          Serial.println("OTA Update successful! Device will restart.");
-        } else if (otaState == OTA_FAILED) {
-          message = "FAILED! Error: " + otaUpdater.getError();
-          Serial.println("OTA Update failed: " + otaUpdater.getError());
-          responseCode = 500;
-        } else {
-          message = "Update was aborted";
-          Serial.println("OTA Update aborted");
-          responseCode = 409;
-        }
-        
-        String response = "<!DOCTYPE html><html><head><title>Update Status</title>"
-          "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-          "<style>body{font-family:Arial;background:#1a1a1a;color:#fff;text-align:center;padding:50px;}"
-          ".success{color:#4CAF50;}.error{color:#f44336;}</style></head><body>"
-          "<h1>Firmware Update</h1>"
-          "<p class=\"" + String(otaState == OTA_SUCCESS ? "success" : "error") + "\">" + message + "</p>";
-        
-        if (otaState == OTA_FAILED || otaState == OTA_ABORTED) {
-          response += "<p><a href=\"/\" style=\"color:#4CAF50;\">Back to Dashboard</a></p>";
-        } else if (otaState == OTA_SUCCESS) {
-          response += "<p>Please wait, device is restarting...</p><script>setTimeout(()=>{window.location.href='/';},5000);</script>";
-        }
-        
-        response += "</body></html>";
-        server.send(responseCode, "text/html", response);
-      },
-      handleUpdate);
-  
-  // Prepare system for update endpoint
-  server.on("/prepare-update", HTTP_POST, [&]() {
-    Serial.println("Preparing system for OTA update...");
-    
-    // Force garbage collection and free up memory
-    ESP.getFreeHeap();
-    
-    // Reduce system load
-    #if ENABLE_SIMULATOR
-    setSimulatorMode(0); // Turn off simulator
-    #endif
-    
-    // Disable debug mode to save memory
-    debugMode = false;
-    
-    // Stop any unnecessary background tasks
-    delay(100); // Give system time to cleanup
-    
-    Serial.printf("System preparation completed. Free heap: %u bytes\n", ESP.getFreeHeap());
-    server.send(200, "text/plain", "System prepared for update");
+  server.on("/update", HTTP_POST, handleUpdate);
+  server.on("/prepare-update", HTTP_POST, []() {
+    server.send(410, "text/plain", "OTA updater disabled");
   });
   
   // Removed duplicate WiFi status endpoint - using the one in main web server section
@@ -2452,60 +2382,7 @@ void handleRoot()
 
 void handleUpdate()
 {
-  // Use the new OTA updater with FreeRTOS task
-  // Handle file upload for OTA update
-  server.on("/update", HTTP_POST, [&]() {
-    // This is the response after upload completes
-    String message;
-    int responseCode = 200;
-    OTAState otaState = otaUpdater.getState();
-    
-    if (otaState == OTA_SUCCESS) {
-      message = "Update successful! MAZDUINO Display will restart in 3 seconds...";
-      Serial.println("OTA Update successful! Device will restart.");
-    } else if (otaState == OTA_FAILED) {
-      message = "FAILED! Error: " + otaUpdater.getError();
-      Serial.println("OTA Update failed: " + otaUpdater.getError());
-      responseCode = 500;
-    } else {
-      message = "Update completed with unknown status";
-      responseCode = 500;
-    }
-    
-    server.send(responseCode, "text/html", 
-      "<html><body><h2>OTA Update</h2><p>" + message + "</p>"
-      "<br><a href='/'>Return to Dashboard</a></body></html>");
-  }, [&]() {
-    // This handles the actual file upload data
-    HTTPUpload& upload = server.upload();
-    
-    if (upload.status == UPLOAD_FILE_START) {
-      Serial.printf("OTA Update Start: %s\n", upload.filename.c_str());
-      
-      if (!otaUpdater.startOTA(upload.totalSize)) {
-        Serial.println("Failed to start OTA update");
-        return;
-      }
-    } 
-    else if (upload.status == UPLOAD_FILE_WRITE) {
-      if (!otaUpdater.writeData(upload.buf, upload.currentSize)) {
-        Serial.println("Failed to write OTA data");
-        return;
-      }
-    } 
-    else if (upload.status == UPLOAD_FILE_END) {
-      Serial.printf("OTA Update End: %u bytes\n", upload.totalSize);
-      
-      if (!otaUpdater.finishOTA()) {
-        Serial.println("Failed to finish OTA update");
-        return;
-      }
-    } 
-    else if (upload.status == UPLOAD_FILE_ABORTED) {
-      Serial.println("OTA Update Aborted");
-      otaUpdater.abortOTA();
-    }
-  });
+  server.send(410, "text/plain", "OTA updater disabled");
 }
 
 void handleToggle()

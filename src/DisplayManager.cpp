@@ -10,7 +10,12 @@
 #include "MainScreen.h"
 #include "ConfigScreen.h"
 #include "BenchScreen.h"
+#include "MenuScreen.h"
+#include "ACScreen.h"
+#include "KeypadScreen.h"
+#if ENABLE_BACKGROUND_IMAGE
 #include "bg/bg.h"
+#endif
 #include <EEPROM.h>
 #include <WiFi.h>
 #if ENABLE_SIMULATOR
@@ -29,12 +34,17 @@ static bool displayInitialized = false;
 // Background image loading function
 void loadBackgroundImage() {
   if (!backgroundLoaded) {
+#if ENABLE_BACKGROUND_IMAGE
     // Draw background image (480x320) from PROGMEM with RGB565 swap
     display.setSwapBytes(true);  // Enable byte swapping for RGB565
     display.pushImage(0, 0, 480, 320, epd_bitmap_bg);
     display.setSwapBytes(false); // Disable byte swapping after loading
-    backgroundLoaded = true;
     Serial.println("[Display] Background image loaded with RGB565 swap");
+#else
+    display.fillScreen(TFT_BLACK);
+    Serial.println("[Display] Background image disabled, using black fill");
+#endif
+    backgroundLoaded = true;
   }
 }
 
@@ -93,6 +103,16 @@ void drawData() {
     case SCREEN_BENCH:
       benchScreen.draw(screenChanged);
       break;
+    case SCREEN_MENU:
+      menuScreen.draw(screenChanged);
+      break;
+    case SCREEN_AC:
+      acScreen.draw(screenChanged);
+      // drawACInfo() now has internal throttling to prevent flickering
+      break;
+    case SCREEN_KEYPAD:
+      keypadScreen.draw(screenChanged);
+      break;
     default:
       // Use configurable display system with performance optimizations
       drawConfigurableData(screenChanged);
@@ -128,6 +148,18 @@ void startUpDisplay() {
     case SCREEN_BENCH:
       Serial.println("[Display] Drawing initial BENCH screen...");
       benchScreen.draw(true);
+      break;
+    case SCREEN_MENU:
+      Serial.println("[Display] Drawing initial MENU screen...");
+      menuScreen.draw(true);
+      break;
+    case SCREEN_AC:
+      Serial.println("[Display] Drawing initial AC screen...");
+      acScreen.draw(true);
+      break;
+    case SCREEN_KEYPAD:
+      Serial.println("[Display] Drawing initial KEYPAD screen...");
+      keypadScreen.draw(true);
       break;
     default:
       Serial.println("[Display] Drawing default MAIN screen...");

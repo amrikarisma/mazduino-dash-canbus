@@ -7,6 +7,29 @@
 ACControllerData receivedACData;
 unsigned long lastACDataTime = 0;
 
+namespace {
+bool ensureBroadcastPeerRegistered() {
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+  if (esp_now_is_peer_exist(broadcastAddress)) {
+    return true;
+  }
+
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  esp_err_t addResult = esp_now_add_peer(&peerInfo);
+  if (addResult != ESP_OK) {
+    Serial.printf("[ESP-NOW] Failed to add broadcast peer: %d\n", addResult);
+    return false;
+  }
+
+  return true;
+}
+}
+
 void initESPNow() {
   Serial.println("=== ESP-NOW Initialization ===");
   
@@ -148,5 +171,35 @@ void updateACControllerData() {
   if (acDataReceived && isACDataValid()) {
     acCurrentTemp = receivedACData.temperature;
     acLastUpdate = lastACDataTime;
+  }
+}
+
+// Send AC cutoff temperature to ESP32C3
+void sendACCutoffToESP32C3(float cutoffTemp) {
+  ACSettingsData settings;
+  settings.cutoffTemperature = cutoffTemp;
+  settings.mode = 0; // Cool mode
+  settings.enabled = true;
+  settings.timestamp = millis();
+  
+  sendACSettingsToESP32C3(settings);
+}
+
+// Send complete AC settings to ESP32C3
+void sendACSettingsToESP32C3(const ACSettingsData& settings) {
+  // Use broadcast address to send data
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+  if (!ensureBroadcastPeerRegistered()) {
+    return;
+  }
+  
+  // Send data via ESP-NOW
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t*)&settings, sizeof(settings));
+  
+  if (result == ESP_OK) {
+    Serial.printf("[ESP-NOW] AC settings sent successfully - Cutoff: %.1f°C\n", settings.cutoffTemperature);
+  } else {
+    Serial.printf("[ESP-NOW] Error sending AC settings: %d\n", result);
   }
 }

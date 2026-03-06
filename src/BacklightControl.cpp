@@ -74,3 +74,17 @@ void enableBacklightWithFadeIn() {
   // Ensure we reach the exact target brightness
   ledcWrite(BACKLIGHT_PIN, backlightBrightness);
 }
+
+void increaseBrightness(uint8_t amount) {
+  uint16_t newBrightness = backlightBrightness + amount;
+  if (newBrightness > 255) newBrightness = 255;
+  setBacklightBrightness((uint8_t)newBrightness);
+  Serial.printf("[Brightness] Increased to %d\n", backlightBrightness);
+}
+
+void decreaseBrightness(uint8_t amount) {
+  int16_t newBrightness = backlightBrightness - amount;
+  if (newBrightness < 20) newBrightness = 20; // Minimum brightness
+  setBacklightBrightness((uint8_t)newBrightness);
+  Serial.printf("[Brightness] Decreased to %d\n", backlightBrightness);
+}

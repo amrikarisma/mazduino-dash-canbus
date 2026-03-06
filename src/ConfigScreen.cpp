@@ -3,7 +3,6 @@
 #include "Config.h"
 #include "DisplayConfig.h"
 #include "BacklightControl.h"
-#include "GPSHandler.h"
 #include "Roboto16.h"
 #include "RobotoBold32.h"
 #include <TFT_eSPI.h>
@@ -83,16 +82,15 @@ bool ConfigScreen::handleTouch(uint16_t x, uint16_t y) {
         {320, 50, 140, 25, 0, "Status"},
         {320, 75, 140, 25, 1, "CommMode"},
         {320, 100, 140, 25, 2, "WiFi"},
-        {320, 125, 140, 25, 3, "GPS"},
-        {320, 150, 140, 25, 4, "Display"},
-        {320, 175, 140, 25, 5, "Brightness"},
-        {320, 200, 140, 25, 6, "Debug"},
-        {320, 225, 140, 25, 7, "Info"}
+        {320, 125, 140, 25, 3, "Display"},
+        {320, 150, 140, 25, 4, "Brightness"},
+        {320, 175, 140, 25, 5, "Debug"},
+        {320, 200, 140, 25, 6, "Info"}
     };
     
     // Check if touch is in any valid area
     int touchedSection = -1;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 7; i++) {
         if (x >= areas[i].x && x <= (areas[i].x + areas[i].w) &&
             y >= areas[i].y && y <= (areas[i].y + areas[i].h)) {
             touchedSection = areas[i].sectionId;
@@ -102,7 +100,7 @@ bool ConfigScreen::handleTouch(uint16_t x, uint16_t y) {
     
     if (touchedSection != -1) {
         // Only allow press and hold for configurable sections
-        if (touchedSection == 1 || touchedSection == 3 || touchedSection == 5 || touchedSection == 6) { // CommMode, GPS, Brightness, Debug
+        if (touchedSection == 1 || touchedSection == 4 || touchedSection == 5) { // CommMode, Brightness, Debug
             if (!isPressing) {
                 // Start press and hold
                 isPressing = true;
@@ -199,19 +197,27 @@ void ConfigScreen::handleSectionTouch(int sectionId) {
         case 1: // Communication Mode
             toggleCommMode();
             break;
-        case 3: // GPS Mode
-            toggleGPSMode();
-            break;
-        case 5: // Brightness (shifted due to GPS addition)
+        case 4: // Brightness
             adjustBrightness();
             break;
-        case 6: // Debug Mode (shifted due to GPS addition)
+        case 5: // Debug Mode
             toggleDebugMode();
             break;
         default:
             // Other sections don't have toggle behavior yet
             break;
     }
+    
+    // Force full redraw to clear "ACTIVATED!" message
+    // IMPORTANT: Clear before resetting pressedSection, or clearProgressArea will skip
+    clearProgressArea();
+    draw(true);
+    
+    // Reset press state AFTER clearing
+    isPressing = false;
+    pressStartTime = 0;
+    pressedSection = -1;
+    selectedSection = -1;
 }
 
 void ConfigScreen::toggleCommMode() {
@@ -356,11 +362,10 @@ void ConfigScreen::drawConfigOptions(bool forceRedraw) {
         drawStatusSection(50, selectedSection == 0);
         drawCommModeSection(75, selectedSection == 1);
         drawWiFiSection(100, selectedSection == 2);
-        drawGPSSection(125, selectedSection == 3);
-        drawDisplaySection(150, selectedSection == 4);
-        drawBrightnessSection(175, selectedSection == 5);
-        drawDebugSection(200, selectedSection == 6);
-        drawInfoSection(225, selectedSection == 7);
+        drawDisplaySection(125, selectedSection == 3);
+        drawBrightnessSection(150, selectedSection == 4);
+        drawDebugSection(175, selectedSection == 5);
+        drawInfoSection(200, selectedSection == 6);
     }
 }
 
@@ -599,51 +604,3 @@ void ConfigScreen::drawPressProgress() {
 }
 
 
-
-void ConfigScreen::drawGPSSection(int y, bool selected) {
-    // Draw background for entire row
-    display.fillRect(5, y, 470, 25, TFT_DARKGREY);
-    display.drawRect(5, y, 470, 25, TFT_WHITE);
-    
-    display.loadFont(AA_FONT_SMALL);
-    display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
-    display.setTextDatum(TL_DATUM);
-    display.drawString("GPS Module (GT-U7)", 10, y + 6);
-    
-    // Show GPS status
-    String gpsInfo;
-    if (gpsEnabled) {
-        if (gpsDataValid) {
-            gpsInfo = "ON (" + String(gpsNumSats) + " sats)";
-        } else {
-            gpsInfo = "ON (No data)";
-        }
-    } else {
-        gpsInfo = "OFF";
-    }
-    
-    uint16_t valueBgColor = selected ? TFT_BLUE : TFT_DARKGREY;
-    uint16_t valueTextColor = selected ? TFT_WHITE : TFT_LIGHTGREY;
-    
-    if (selected) {
-        display.fillRect(320, y, 150, 25, valueBgColor);
-    }
-    
-    display.setTextColor(valueTextColor, valueBgColor);
-    display.setTextDatum(TR_DATUM);
-    display.drawString(gpsInfo, 465, y + 6);
-}
-
-void ConfigScreen::toggleGPSMode() {
-    static uint32_t lastToggle = 0;
-    if (millis() - lastToggle < 1000) return; // Debounce
-    lastToggle = millis();
-    
-    gpsEnabled = !gpsEnabled;
-    gpsHandler.enableGPS(gpsEnabled);
-    
-    Serial.printf("[Config] GPS %s\n", gpsEnabled ? "Enabled" : "Disabled");
-    
-    // Force redraw to show updated status
-    draw(true);
-}

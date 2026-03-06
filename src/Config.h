@@ -110,7 +110,10 @@ extern const char *password;
 #define SCREEN_MAIN 0
 #define SCREEN_CONFIG 1
 #define SCREEN_BENCH 2
-#define TOTAL_SCREENS 3
+#define SCREEN_MENU 3
+#define SCREEN_AC 4
+#define SCREEN_KEYPAD 5
+#define TOTAL_SCREENS 6
 
 // Swipe gesture constants
 #define SWIPE_MIN_DISTANCE 25
@@ -120,7 +123,7 @@ extern const char *password;
 #define EEPROM_SIZE 1024  // Increased from 512 to 1024 for display config
 
 // Simulator configuration
-#define ENABLE_SIMULATOR 1  // Set to 0 to disable simulator completely
+#define ENABLE_SIMULATOR 0  // Set to 0 to disable simulator completely
 
 // AC Controller configuration (ESP-NOW)
 #define AC_CONTROLLER_ENABLE_BY_DEFAULT true
@@ -133,6 +136,11 @@ extern const char *password;
 
 // Debug configuration
 #define ENABLE_DEBUG_MODE 1  // Set to 0 to disable debug mode completely
+
+// Feature toggles for flash optimization
+#define ENABLE_OTA_UPDATER 0
+#define ENABLE_GPS_MODULE 0
+#define ENABLE_BACKGROUND_IMAGE 0
 
 // Font definitions
 #define AA_FONT_SMALL Roboto16
@@ -171,7 +179,9 @@ extern const char *password;
 // Address 11-12:  Display brightness + initialization flag (0xAA)
 // Address 14-15:  Speeduino data mode + initialization flag (0xBB)
 // Address 16-17:  AC Controller enable + initialization flag (0xCC)
-// Address 18-31:  Reserved for future features
+// Address 18-19:  AC cutoff temperature value (uint16, temperature * 10)
+// Address 20:     AC cutoff initialization flag (0xDD)
+// Address 21-31:  Reserved for future features
 // Address 32-99:  Reserved for expansion
 // Address 100-299: Display configuration (up to 200 bytes)
 // Address 300-399: Touch calibration data
@@ -187,7 +197,9 @@ extern const char *password;
 #define EEPROM_SPEEDUINO_FLAG_ADDR      15
 #define EEPROM_AC_CONTROLLER_ADDR       16
 #define EEPROM_AC_CONTROLLER_FLAG_ADDR  17
-#define EEPROM_RESERVED_START_ADDR      18
+#define EEPROM_AC_CUTOFF_TEMP_ADDR      18
+#define EEPROM_AC_CUTOFF_FLAG_ADDR      20
+#define EEPROM_RESERVED_START_ADDR      21
 #define EEPROM_DISPLAY_CONFIG_ADDR      100
 #define EEPROM_TOUCH_CALIB_ADDR         300
 #define EEPROM_WIFI_CONFIG_ADDR         400
@@ -198,7 +210,8 @@ extern const char *password;
 #define EEPROM_BRIGHTNESS_FLAG          0xAA
 #define EEPROM_SPEEDUINO_FLAG           0xBB
 #define EEPROM_AC_CONTROLLER_FLAG       0xCC
+#define EEPROM_AC_CUTOFF_FLAG           0xDD
 
-#define GPS_MODE_ENABLED 0
+#define GPS_MODE_ENABLED ENABLE_GPS_MODULE
 
 #endif // CONFIG_H

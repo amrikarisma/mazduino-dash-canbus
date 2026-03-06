@@ -2,6 +2,10 @@
 #include "Config.h"
 #include "ConfigScreen.h"
 #include "BenchScreen.h"
+#include "MenuScreen.h"
+#include "ACScreen.h"
+#include "KeypadScreen.h"
+#include "BacklightControl.h"
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
 #include <math.h>
@@ -47,7 +51,7 @@ TouchHandler::TouchHandler() :
   touch(nullptr),
 #endif
   lastTouchTime(0),
-  debounceDelay(20), // Reduced from 50ms to 20ms
+  debounceDelay(100), // Debounce delay to prevent double-tap false positives
   swipeStarted(false),
   swipeStartX(0),
   swipeStartY(0),
@@ -150,6 +154,8 @@ ECUTouchEvent TouchHandler::readTouch() {
   static uint32_t stableCoordTime = 0;
   static uint16_t stableX = 0, stableY = 0;
   static uint8_t stableCount = 0;
+  static uint32_t touchReleaseTime = 0;
+  static const uint32_t releaseDebounce = 150; // Extra debounce after release to prevent double-tap
   
   // Check if screen is being touched
   if (!touchFT->touched()) {
@@ -163,8 +169,13 @@ ECUTouchEvent TouchHandler::readTouch() {
       event.isValid = true;
       wasTouched = false;
       stableCount = 0;
+      touchReleaseTime = millis(); // Record release time for debounce
       lastTouchTime = millis();
       return event;
+    }
+    // Check if we're still in release debounce period
+    if (millis() - touchReleaseTime < releaseDebounce) {
+      return event; // Ignore touch during release debounce
     }
     stableCount = 0;
     return event; // No touch, return invalid event
@@ -246,6 +257,8 @@ ECUTouchEvent TouchHandler::readTouch() {
   static uint32_t stableCoordTime = 0;
   static uint16_t stableX = 0, stableY = 0;
   static uint8_t stableCount = 0;
+  static uint32_t touchReleaseTime = 0;
+  static const uint32_t releaseDebounce = 150; // Extra debounce after release to prevent double-tap
   
   if (p.z < TOUCH_PRESSURE_THRESHOLD) {
     // No touch detected
@@ -258,8 +271,13 @@ ECUTouchEvent TouchHandler::readTouch() {
       event.isValid = true;
       wasTouched = false;
       stableCount = 0; // Reset stability counter
+      touchReleaseTime = millis(); // Record release time for debounce
       lastTouchTime = millis();
       return event;
+    }
+    // Check if we're still in release debounce period
+    if (millis() - touchReleaseTime < releaseDebounce) {
+      return event; // Ignore touch during release debounce
     }
     stableCount = 0; // Reset stability counter when no touch
     return event; // No touch, return invalid event
@@ -749,7 +767,8 @@ void setupTouchNavigation() {
 void handleTouchNavigation() {
   static bool touchStarted = false;
   static uint16_t startX = 0, startY = 0;
-  static uint16_t maxX = 0, minX = 0; // Track extreme positions
+  static uint16_t maxX = 0, minX = 0; // Track extreme X positions
+  static uint16_t maxY = 0, minY = 0; // Track extreme Y positions
   static uint32_t startTime = 0;
   static bool longPressDetected = false;
   static uint32_t lastDebugPrint = 0;
@@ -771,12 +790,16 @@ void handleTouchNavigation() {
       startY = touch.y;
       maxX = touch.x;
       minX = touch.x;
+      maxY = touch.y;
+      minY = touch.y;
       startTime = millis();
       longPressDetected = false;
     } else {
       // Track extreme positions during touch
       if (touch.x > maxX) maxX = touch.x;
       if (touch.x < minX) minX = touch.x;
+      if (touch.y > maxY) maxY = touch.y;
+      if (touch.y < minY) minY = touch.y;
       
       // Check for long press (hold for 800ms without much movement)
       uint32_t holdTime = millis() - startTime;
@@ -785,7 +808,12 @@ void handleTouchNavigation() {
       if (!longPressDetected && holdTime > 800 && movement < 20) {
         longPressDetected = true;
         Serial.printf("[LongPress] Detected at (%d,%d) after %dms\n", touch.x, touch.y, holdTime);
-        // Handle long press action here if needed
+        
+        // Handle long press action - open menu on main screen
+        if (currentScreen == SCREEN_MAIN) {
+          currentScreen = SCREEN_MENU;
+          Serial.println("[LongPress] Opening menu from main screen");
+        }
       }
     }
   } else if (touchStarted && !touch.pressed) {
@@ -793,54 +821,49 @@ void handleTouchNavigation() {
     uint32_t duration = millis() - startTime;
     
     if (!longPressDetected) {
-      // Calculate movement range
+      // Calculate movement ranges
       uint16_t horizontalRange = maxX - minX;
+      uint16_t verticalRange = maxY - minY;
       int16_t deltaX = maxX > startX + 15 ? (maxX - startX) : (minX < startX - 15 ? (minX - startX) : 0);
+      int16_t deltaY = maxY > startY + 15 ? (maxY - startY) : (minY < startY - 15 ? (minY - startY) : 0);
       
       // Only show debug for meaningful gestures (reduce spam)
-      if (horizontalRange > 5 || duration > 50) {
-        Serial.printf("[Swipe] Range:%d Delta:%d Time:%dms ", horizontalRange, deltaX, duration);
+      if (horizontalRange > 5 || verticalRange > 5 || duration > 50) {
+        Serial.printf("[Swipe] H:%d V:%d DX:%d DY:%d T:%dms ", horizontalRange, verticalRange, deltaX, deltaY, duration);
         
-        // More sensitive thresholds for swipe detection
-        if (horizontalRange > 15 && duration < 1000 && abs(deltaX) > 10) {
-          bool swipeDetected = false;
-          
-          if (deltaX > 0) {
-            // Swipe RIGHT
-            Serial.print("RIGHT -> ");
-            if (currentScreen == SCREEN_MAIN) {
-              currentScreen = SCREEN_BENCH;
-              Serial.println("BENCH");
-              swipeDetected = true;
-            } else if (currentScreen == SCREEN_CONFIG) {
+        // Check if it's a vertical or horizontal swipe
+        if (verticalRange > horizontalRange && verticalRange > 25 && duration < 1000 && abs(deltaY) > 15) {
+          // VERTICAL SWIPE - Menu & Keypad navigation
+          if (deltaY < 0) {
+            // Swipe UP - Show menu
+            Serial.println("UP -> MENU");
+            currentScreen = SCREEN_MENU;
+          } else {
+            // Swipe DOWN - Show keypad
+            Serial.println("DOWN -> KEYPAD");
+            currentScreen = SCREEN_KEYPAD;
+          }
+        } else if (horizontalRange > verticalRange && horizontalRange > 15 && duration < 1000 && abs(deltaX) > 10) {
+          // HORIZONTAL SWIPE - Back navigation only
+          if (deltaX < 0) {
+            // Swipe LEFT - Go back to previous screen
+            Serial.print("LEFT -> Back: ");
+            if (currentScreen == SCREEN_CONFIG || currentScreen == SCREEN_BENCH || 
+                currentScreen == SCREEN_KEYPAD || currentScreen == SCREEN_AC) {
               currentScreen = SCREEN_MAIN;
               Serial.println("MAIN");
-              swipeDetected = true;
+            } else if (currentScreen == SCREEN_MENU) {
+              currentScreen = SCREEN_MAIN;
+              Serial.println("MAIN");
             } else {
               Serial.println("(no change)");
             }
           } else {
-            // Swipe LEFT  
-            Serial.print("LEFT -> ");
-            if (currentScreen == SCREEN_MAIN) {
-              currentScreen = SCREEN_CONFIG;
-              Serial.println("CONFIG");
-              swipeDetected = true;
-            } else if (currentScreen == SCREEN_BENCH) {
-              currentScreen = SCREEN_MAIN;
-              Serial.println("MAIN");
-              swipeDetected = true;
-            } else {
-              Serial.println("(no change)");
-            }
+            // Swipe RIGHT - Disabled (no action)
+            Serial.println("RIGHT -> (disabled)");
           }
-          
-          // Screen clearing now handled by DisplayManager
-          // if (swipeDetected) {
-          //   display.fillScreen(TFT_BLACK);
-          // }
         } else {
-          if (horizontalRange > 10) Serial.println("(too small/slow)");
+          if (horizontalRange > 10 || verticalRange > 10) Serial.println("(too small/slow)");
         }
       }
     }
@@ -864,6 +887,18 @@ void handleTouchNavigation() {
         }
 #endif
       }
+    } else if (currentScreen == SCREEN_MENU) {
+      // Handle MENU screen touches
+      extern MenuScreen menuScreen;
+      menuScreen.handleTouch(touch.x, touch.y);
+    } else if (currentScreen == SCREEN_AC) {
+      // Handle AC screen touches
+      extern ACScreen acScreen;
+      acScreen.handleTouch(touch.x, touch.y);
+    } else if (currentScreen == SCREEN_KEYPAD) {
+      // Handle KEYPAD screen touches
+      extern KeypadScreen keypadScreen;
+      keypadScreen.handleTouch(touch.x, touch.y);
     } else {
       // Handle other screen touches
       touchHandler.handleTouchAreas(touch.x, touch.y);
